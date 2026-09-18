@@ -6,7 +6,7 @@ Concise, actionable subtasks for the SmartCity project. Break work into small, v
 ---
 
 ## High Priority (MVP)
-- [x] Create initial `TODO.md` (this file)
+- [x] Create initial `TODO.md`
 - [ ] Define project scope and success criteria
 - [ ] Add short project description and goals
 
