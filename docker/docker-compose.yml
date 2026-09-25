@@ -1,5 +1,3 @@
-version: '3.8'
-
 # =============================================================
 # SmartCity Analytics - CE-3191 Base de Datos
 # Entorno con PostgreSQL, MongoDB, Hadoop (HDFS) y Spark
@@ -89,7 +87,7 @@ services:
   # Spark - master + un worker (suficiente para el proyecto)
   # -----------------------------------------------------------
   spark-master:
-    image: bitnami/spark:3.5
+    image: bitnamilegacy/spark:3.5
     container_name: smartcity_spark_master
     restart: unless-stopped
     environment:
@@ -103,7 +101,7 @@ services:
       - "7077:7077"   # puerto para spark-submit / conexión de clientes
 
   spark-worker:
-    image: bitnami/spark:3.5
+    image: bitnamilegacy/spark:3.5
     container_name: smartcity_spark_worker
     restart: unless-stopped
     depends_on:
