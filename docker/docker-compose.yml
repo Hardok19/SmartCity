@@ -1,0 +1,123 @@
+# =============================================================
+# SmartCity Analytics - CE-3191 Base de Datos
+# Entorno con PostgreSQL, MongoDB, Hadoop (HDFS) y Spark
+# =============================================================
+
+services:
+
+  # -----------------------------------------------------------
+  # PostgreSQL - datos estructurados/relacionales
+  # -----------------------------------------------------------
+  postgres:
+    image: postgres:16
+    container_name: smartcity_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: smartcity
+      POSTGRES_PASSWORD: smartcity123
+      POSTGRES_DB: smartcity_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d   # scripts .sql se ejecutan solo la 1ra vez
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartcity -d smartcity_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # -----------------------------------------------------------
+  # MongoDB - datos semiestructurados/documentales
+  # -----------------------------------------------------------
+  mongo:
+    image: mongo:7
+    container_name: smartcity_mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: smartcity
+      MONGO_INITDB_ROOT_PASSWORD: smartcity123
+      MONGO_INITDB_DATABASE: smartcity_db
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d       # scripts .js se ejecutan solo la 1ra vez
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # -----------------------------------------------------------
+  # Hadoop - HDFS (namenode + datanode) pseudo-distribuido
+  # Usa las imágenes bde2020, que ya traen los scripts de
+  # inicialización (formateo del namenode, etc.) resueltos.
+  # -----------------------------------------------------------
+  namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: smartcity_namenode
+    restart: unless-stopped
+    environment:
+      - CLUSTER_NAME=smartcity
+    env_file:
+      - ./hadoop.env
+    ports:
+      - "9870:9870"   # UI web de HDFS -> http://localhost:9870
+      - "8020:8020"   # puerto RPC del namenode
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: smartcity_datanode
+    restart: unless-stopped
+    depends_on:
+      - namenode
+    environment:
+      - SERVICE_PRECONDITION=namenode:9870
+    env_file:
+      - ./hadoop.env
+    ports:
+      - "9864:9864"
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+
+  # -----------------------------------------------------------
+  # Spark - master + un worker (suficiente para el proyecto)
+  # -----------------------------------------------------------
+  spark-master:
+    image: bitnamilegacy/spark:3.5
+    container_name: smartcity_spark_master
+    restart: unless-stopped
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - "8080:8080"   # UI web de Spark -> http://localhost:8080
+      - "7077:7077"   # puerto para spark-submit / conexión de clientes
+
+  spark-worker:
+    image: bitnamilegacy/spark:3.5
+    container_name: smartcity_spark_worker
+    restart: unless-stopped
+    depends_on:
+      - spark-master
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark-master:7077
+      - SPARK_WORKER_MEMORY=2G
+      - SPARK_WORKER_CORES=2
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+
+volumes:
+  postgres_data:
+  mongo_data:
+  hadoop_namenode:
+  hadoop_datanode:
