@@ -48,24 +48,24 @@ MongoDB ──(export JSON Lines)──► HDFS /smartcity/raw/mongo_exports/  [
 
 ## Progreso
 
-| Fase | Nombre | Resp. | Tareas | Hechas | Estado | Fechas |
-|---|---|---|---|---|---|---|
-| F0 | Entorno Docker (ya existente) | AB | 3 | 2 | 🟡 | ✔ previo |
-| F1 | Acuerdos comunes y datos maestros | AB | 6 | 0 | ⚪ | 9–11 nov |
-| F2 | Adquisición de datos (OpenAQ + Open-Meteo) | A/B | 4 | 0 | ⚪ | 10–12 nov |
-| A1 | PostgreSQL: modelo y DDL | A | 5 | 0 | ⚪ | 10–13 nov |
-| A2 | PostgreSQL: consultas, vistas, funciones, optimización | A | 6 | 0 | ⚪ | 13–17 nov |
-| A3 | HDFS: estructura, carga y operaciones | A | 5 | 0 | ⚪ | 11–15 nov |
-| A4 | Hadoop: MapReduce | A | 4 | 0 | ⚪ | 14–18 nov |
-| A5 | Módulo `conectores_postgres_hadoop.py` | A | 4 | 0 | ⚪ | 12–19 nov |
-| B1 | MongoDB: modelo, validadores e índices | B | 3 | 0 | ⚪ | 10–12 nov |
-| B2 | MongoDB: carga, CRUD, consultas y export | B | 6 | 0 | ⚪ | 11–17 nov |
-| B3 | Spark: entorno y ETL | B | 4 | 0 | ⚪ | 12–16 nov |
-| B4 | Spark: SQL obligatorias y análisis | B | 4 | 0 | ⚪ | 15–19 nov |
-| B5 | Módulo `conectores_mongo_spark.py` | B | 4 | 0 | ⚪ | 12–19 nov |
-| D | Dashboard Streamlit | AB | 8 | 0 | ⚪ | 12–21 nov |
-| C | Comparación tecnológica (experimentos) | AB | 3 | 0 | ⚪ | 18–20 nov |
-| E | Documentación, defensa y entrega | AB | 8 | 0 | ⚪ | 17–25 nov |
+| Fase | Nombre | Resp. | Tareas | Hechas | Estado |
+|---|---|---|---|---|---|
+| F0 | Entorno Docker (ya existente) | AB | 3 | 2 | 🟡 |
+| F1 | Acuerdos comunes y datos maestros | AB | 6 | 0 | ⚪ |
+| F2 | Adquisición de datos (OpenAQ + Open-Meteo) | A/B | 4 | 0 | ⚪ |
+| A1 | PostgreSQL: modelo y DDL | A | 5 | 0 | ⚪ |
+| A2 | PostgreSQL: consultas, vistas, funciones, optimización | A | 6 | 0 | ⚪ |
+| A3 | HDFS: estructura, carga y operaciones | A | 5 | 0 | ⚪ |
+| A4 | Hadoop: MapReduce | A | 4 | 0 | ⚪ |
+| A5 | Módulo `conectores_postgres_hadoop.py` | A | 4 | 0 | ⚪ |
+| B1 | MongoDB: modelo, validadores e índices | B | 3 | 0 | ⚪ |
+| B2 | MongoDB: carga, CRUD, consultas y export | B | 6 | 0 | ⚪ |
+| B3 | Spark: entorno y ETL | B | 4 | 0 | ⚪ |
+| B4 | Spark: SQL obligatorias y análisis | B | 4 | 0 | ⚪ |
+| B5 | Módulo `conectores_mongo_spark.py` | B | 4 | 0 | ⚪ |
+| D | Dashboard Streamlit | AB | 8 | 0 | ⚪ |
+| C | Comparación tecnológica (experimentos) | AB | 3 | 0 | ⚪ |
+| E | Documentación, defensa y entrega | AB | 8 | 0 | ⚪ |
 
 Leyenda: ⚪ sin empezar · 🟡 en curso · 🟢 completa · 🔴 bloqueada.
 
