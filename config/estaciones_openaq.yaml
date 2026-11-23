@@ -1,0 +1,11 @@
+# config/estaciones_openaq.yaml — estaciones elegidas (F1.2). IDs = location id de OpenAQ.
+# ⚠ verificado: false → comprobar en explore.openaq.org ANTES de descargar:
+#   que midan PM2.5, que cubran 2023-2024 con pocos huecos y qué otros parámetros tienen.
+#   lat/lon son aproximadas; reemplazar por las que muestre OpenAQ.
+estaciones:
+  - { id: 225791, nombre: "Islington - Holloway Road",       zona: "Zona Norte",  lat: 51.5532, lon: -0.1157, verificado: false }
+  - { id: 225773, nombre: "Merton - Merton Road",            zona: "Zona Sur",    lat: 51.4177, lon: -0.1911, verificado: false }
+  - { id: 154,    nombre: "Westminster - Marylebone Road",   zona: "Zona Centro", lat: 51.5225, lon: -0.1546, verificado: false }
+  - { id: 225796, nombre: "Greenwich - Falconwood",          zona: "Zona Este",   lat: 51.4563, lon:  0.0703, verificado: false }
+  - { id: 225771, nombre: "Richmond - Barnes Wetlands",      zona: "Zona Oeste",  lat: 51.4736, lon: -0.2358, verificado: false }
+parametros: [pm25, pm10, no2, o3, co]

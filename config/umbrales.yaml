@@ -1,0 +1,9 @@
+# config/umbrales.yaml — B1.3. Usado por alertas (generar_sinteticos), Spark y streaming.
+# pm25: valores indicados en el TODO. El resto son PROPUESTAS: justificar fuente en el doc técnico.
+pm25:        { unidad: "µg/m3", media: 35.4, alta: 55.4, critica: 150.4 }
+pm10:        { unidad: "µg/m3", media: 54,   alta: 154,  critica: 254 }
+no2:         { unidad: "µg/m3", media: 200 }      # límite horario UE
+o3:          { unidad: "µg/m3", media: 120 }
+co:          { unidad: "µg/m3", media: 10000 }    # 10 mg/m3 (UE, 8 h)
+temperatura: { unidad: "°C",    ola_calor: 28, ola_calor_alta: 32 }
+precipitacion: { unidad: "mm/h", intensa: 4, muy_intensa: 8 }
