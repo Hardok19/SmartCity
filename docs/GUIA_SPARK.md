@@ -133,7 +133,21 @@ Se guardan archivos como `data/raw/openmeteo/zona_centro_2023.json` y `zona_nort
 
 ### 4.2. OpenAQ (requiere API key)
 
-Obtener una clave desde el servicio OpenAQ. Introducirla en Git Bash sin escribirla en el código ni subirla a Git:
+#### Cómo obtener la API key de OpenAQ (API v3)
+
+Cada integrante que descargue datos debe utilizar su **propia clave personal**; no es necesario compartir la clave de otro miembro del equipo.
+
+1. Abrir **https://explore.openaq.org/register** (registro oficial de OpenAQ Explorer). Si ya se tiene cuenta, iniciar sesión en **https://explore.openaq.org/**.
+2. Completar el registro con nombre, correo electrónico y contraseña. **Verificar el correo** si OpenAQ solicita la confirmación de la cuenta.
+3. Iniciar sesión y abrir **https://explore.openaq.org/account** (configuración de la cuenta).
+4. Buscar la sección donde aparece la **API key**; copiar la clave personal. Si se sospecha que quedó expuesta, puede rotarse desde la misma página de cuenta.
+5. Volver a Git Bash para cargar la clave como variable de entorno, siguiendo el bloque de comandos siguiente. No pegarla directamente en scripts, commits, capturas ni mensajes al equipo.
+
+Estas instrucciones corresponden a la **API v3**. Referencias oficiales: https://docs.openaq.org/using-the-api/api-key y https://python.openaq.org/getting-started/quick-start/.
+
+#### Configurarla y descargar las mediciones
+
+Introducir la clave en **Git Bash**, desde la raíz de SmartCity; la escritura permanecerá oculta. El script usa la variable `OPENAQ_API_KEY` y envía la clave en la cabecera HTTP `X-API-Key`:
 
 ```bash
 read -rsp "OpenAQ API key: " OPENAQ_API_KEY
