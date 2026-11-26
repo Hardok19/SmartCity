@@ -1,0 +1,15 @@
+# Archivo adicional: combinarlo con docker/docker-compose.yml usando dos -f.
+# NO modifica Postgres, MongoDB ni los volumenes de HDFS.
+# Las rutas de build se interpretan relativas a docker/ (primer -f).
+services:
+  spark-master:
+    image: smartcity-spark-ml:3.5
+    build:
+      context: ..
+      dockerfile: docker/spark/Dockerfile
+
+  spark-worker:
+    image: smartcity-spark-ml:3.5
+    build:
+      context: ..
+      dockerfile: docker/spark/Dockerfile

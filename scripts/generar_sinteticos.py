@@ -383,7 +383,7 @@ def main():
                                 "sensor_id": sid, "zona": zona_ref(z), "emitida": D(emitida), "estado": estado, "acciones": acc})
                 if es_aire:
                     dur = (e0 - s0) / k
-                    fin_ev = str(np.datetime64(emitida[:-1]) + np.timedelta64(int(max(1.0, dur) * 60), "m")) + ":00Z"
+                    fin_ev = np.datetime_as_string(np.datetime64(emitida[:-1]) + np.timedelta64(int(max(1.0, dur) * 60), "m"), unit="s") + "Z"
                     eventos.append({"tipo_evento": "contaminacion_alta", "severidad": nivel, "inicio": D(emitida), "fin": D(fin_ev),
                                     "zona": zona_ref(z), "sensores": [sid],
                                     "detalles": {"variable": "pm25", "valor_max": round(pico_v, 1), "umbral": umbral, "duracion_h": round(dur, 1)}})

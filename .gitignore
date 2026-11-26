@@ -2,3 +2,23 @@ docker/postgres_data/
 docker/mongo_data/
 docker/hadoop_namenode/
 docker/hadoop_datanode/
+# Entorno Python
+.venv/
+__pycache__/
+*.pyc
+
+# Variables privadas
+.env
+.env.*
+!.env.example
+
+# Datos descargados y generados
+data/raw/
+data/interim/
+*.jsonl
+*.parquet
+
+# Respaldos y archivos temporales
+*.bak
+*.bak-*
+*.log
