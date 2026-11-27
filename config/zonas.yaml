@@ -1,0 +1,12 @@
+# config/zonas.yaml — F1.2 / D-02. Ciudad de referencia: Londres (Reino Unido).
+# Strings de zona EXACTOS del contrato.py. Centroides aproximados de cada distrito
+# (Open-Meteo se consulta en este punto). poblacion_aprox: orden de magnitud, censo 2021.
+ciudad: "Londres, Reino Unido"
+periodo: { inicio: "2023-01-01", fin: "2024-12-31" }
+zona_horaria: "UTC"
+zonas:
+  - { id_zona: 1, zona: "Zona Norte",  distrito: "Islington",   tipo_zona: "mixta",       lat: 51.5465, lon: -0.1058, poblacion_aprox: 216000 }
+  - { id_zona: 2, zona: "Zona Sur",    distrito: "Merton",      tipo_zona: "residencial", lat: 51.4098, lon: -0.1949, poblacion_aprox: 215000 }
+  - { id_zona: 3, zona: "Zona Centro", distrito: "Westminster", tipo_zona: "comercial",   lat: 51.4975, lon: -0.1357, poblacion_aprox: 204000 }
+  - { id_zona: 4, zona: "Zona Este",   distrito: "Greenwich",   tipo_zona: "industrial",  lat: 51.4892, lon:  0.0648, poblacion_aprox: 289000 }
+  - { id_zona: 5, zona: "Zona Oeste",  distrito: "Richmond",    tipo_zona: "residencial", lat: 51.4613, lon: -0.3037, poblacion_aprox: 196000 }

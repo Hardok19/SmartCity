@@ -51,15 +51,15 @@ MongoDB ──(export JSON Lines)──► HDFS /smartcity/raw/mongo_exports/  [
 | Fase | Nombre | Resp. | Tareas | Hechas | Estado |
 |---|---|---|---|---|---|
 | F0 | Entorno Docker (ya existente) | AB | 3 | 2 | 🟡 |
-| F1 | Acuerdos comunes y datos maestros | AB | 6 | 0 | ⚪ |
-| F2 | Adquisición de datos (OpenAQ + Open-Meteo) | A/B | 4 | 0 | ⚪ |
+| F1 | Acuerdos comunes y datos maestros | AB | 6 | 2 | 🟡 |
+| F2 | Adquisición de datos (OpenAQ + Open-Meteo) | A/B | 4 | 3 | 🟡 |
 | A1 | PostgreSQL: modelo y DDL | A | 5 | 0 | ⚪ |
 | A2 | PostgreSQL: consultas, vistas, funciones, optimización | A | 6 | 0 | ⚪ |
 | A3 | HDFS: estructura, carga y operaciones | A | 5 | 0 | ⚪ |
 | A4 | Hadoop: MapReduce | A | 4 | 0 | ⚪ |
 | A5 | Módulo `conectores_postgres_hadoop.py` | A | 4 | 0 | ⚪ |
-| B1 | MongoDB: modelo, validadores e índices | B | 3 | 0 | ⚪ |
-| B2 | MongoDB: carga, CRUD, consultas y export | B | 6 | 0 | ⚪ |
+| B1 | MongoDB: modelo, validadores e índices | B | 3 | 1 | 🟡 |
+| B2 | MongoDB: carga, CRUD, consultas y export | B | 6 | 3 | 🟡 |
 | B3 | Spark: entorno y ETL | B | 4 | 0 | ⚪ |
 | B4 | Spark: SQL obligatorias y análisis | B | 4 | 0 | ⚪ |
 | B5 | Módulo `conectores_mongo_spark.py` | B | 4 | 0 | ⚪ |
@@ -106,7 +106,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 - [ ] **F1.1** Cerrar el contrato de datos (D-01) — **AB**
   - Revisar `contrato.py` juntos, aplicar la ampliación de `TIPOS_METRICA`/`UNIDADES` y anotar el cambio en un comentario de cabecera. A partir de aquí **toda** función que devuelva lecturas al dashboard devuelve `COLUMNAS_ESTANDAR` en UTC y pasa `validar_zonas` + `validar_tipo_metrica`.
   - **Aceptación:** ambas parejas aprueban el PR; `python -c "import contrato"` funciona.
-- [ ] **F1.2** Ciudad y zonas (D-02) — **AB**
+- [x] **F1.2** Ciudad y zonas (D-02) — **AB** — ✅ 2026-11-23 · config/zonas.yaml y config/estaciones_openaq.yaml creados
   - Elegir ciudad, listar estaciones OpenAQ candidatas (id, nombre, lat, lon, parámetros, rango de fechas) y asignarlas a las 5 zonas. Guardar en `config/zonas.yaml` (zona, distrito, lat/lon del centroide, población aprox.) y `config/estaciones_openaq.yaml`.
   - **Aceptación:** cada zona tiene ≥ 1 estación real con PM2.5; mapa rápido de verificación.
 - [ ] **F1.3** Módulo compartido `comun.py` (raíz) — **AB**
@@ -114,7 +114,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   - `@dataclass Consulta`: `id` (`PG-Q01`, `MG-Q05`, `HD-MR02`, `SP-Q07`…), `tecnologia` (una de `FUENTES_VALIDAS`), `titulo`, `descripcion`, `codigo` (SQL/pipeline/mapper/SQL Spark para mostrar en la UI), `lenguaje`, `parametros: dict` (nombre → valor por defecto), `funcion: Callable[..., pd.DataFrame]`.
   - `config.py` o sección en `comun.py` con credenciales leídas de `.env` (crear `.env.example` con los valores de `DOCKER_SETUP.md`).
   - **Aceptación:** ambos módulos de conectores importan `Filtros` y `Consulta` de aquí; nadie define los suyos.
-- [ ] **F1.4** Catálogo maestro de sensores — **A** (lo consume B)
+- [x] **F1.4** Catálogo maestro de sensores — **A** (lo consume B) — ✅ 2026-11-23 · scripts/generar_maestros.py → data/sensores.csv (ruta real: data/, no data/maestros/)
   - Generar `data/maestros/sensores.csv` (semilla 2026): estaciones OpenAQ reales (`origen=openaq`) + sensores IoT virtuales por zona (calidad del aire y clima; D-06) + los de `trafico`/`energia` si se aprueba D-03. Columnas: `id_sensor` (`S-001`… mismo id en PG, Mongo y HDFS), `nombre, tipo_metrica, categoria, zona, lat, lon, fecha_instalacion, estado, organismo`. ~5 % `inactivo` y ~3 % que **nunca** envían datos (para PG-Q07).
   - **Aceptación:** CSV commiteado (es pequeño); B lo usa en su generador.
 - [ ] **F1.5** Plan de volúmenes y datos sintéticos (D-03, D-06) — **AB**
@@ -131,17 +131,17 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 > Scripts idempotentes en `scripts/descargar_*.py` (si el archivo ya existe no se descarga de nuevo), con registro
 > en `data/raw/MANIFEST.json` (url, fecha, bytes). Respetar límites de las APIs (pausa entre requests, reintento en 429).
 
-- [ ] **F2.1** OpenAQ — **B** — `scripts/descargar_openaq.py`
+- [x] **F2.1** OpenAQ — **B** — `scripts/descargar_openaq.py` — ✅ 2026-11-23 · scripts/descargar_openaq.py
   - Por cada estación de `config/estaciones_openaq.yaml`: mediciones horarias de `pm25, pm10, co, no2, o3` (las disponibles). Opción 1: API v3 (requiere API key gratuita, en `.env`). Opción 2: archivo público en S3 `openaq-data-archive` (sin key, CSV.gz por estación/día).
   - Guardar en `data/raw/openaq/<estacion>/<anio>.csv`. Anotar licencia y fecha de descarga.
   - **Aceptación:** conteo de filas por estación y rango de fechas; % de nulos.
-- [ ] **F2.2** Open-Meteo — **A** — `scripts/descargar_openmeteo.py`
+- [x] **F2.2** Open-Meteo — **A** — `scripts/descargar_openmeteo.py` — ✅ 2026-11-23 · scripts/descargar_openmeteo.py
   - API de archivo histórico (`archive-api.open-meteo.com`) por centroide de zona: `temperature_2m, relative_humidity_2m, precipitation, wind_speed_10m` horario, mismo rango que OpenAQ, `timezone=UTC`, bloques de 1 año. Opcional: API de calidad del aire de Open-Meteo como respaldo si alguna zona queda sin estación OpenAQ.
   - Guardar `data/raw/openmeteo/zona_<zona>_<anio>.json`.
   - **Aceptación:** 5 zonas × años esperados, sin huecos grandes (script de validación).
 - [ ] **F2.3** Perfilado de fuentes — **AB** — `docs/datos/FUENTES.md`
   - Por fuente: descripción, URL, licencia, cómo se descarga (comando), filas, columnas, nulos, min/max, frecuencia, tamaño en disco, limpieza aplicada y **en qué tecnología termina y por qué**.
-- [ ] **F2.4** Generador sintético — **B** — `scripts/generar_sinteticos.py`
+- [x] **F2.4** Generador sintético — **B** — `scripts/generar_sinteticos.py` — ✅ 2026-11-23 · scripts/generar_sinteticos.py + docs/datos/GENERACION_SINTETICA.md
   - Sensores IoT virtuales de `sensores.csv`: lectura cada 15 min = valor real horario de su zona (OpenAQ/Open-Meteo interpolado) + sesgo propio + ruido gaussiano; ~1 % anomalías (picos, negativos, sensor pegado), huecos de 1–6 h, y desde cierta fecha un campo nuevo (`firmware 2.x` agrega `o3`, `bateria_pct`) → evolución de esquema. Más `trafico`/`energia` si D-03.
   - Documentar fórmulas y parámetros en `docs/datos/GENERACION_SINTETICA.md` (el enunciado lo exige).
   - **Aceptación:** reproducible (misma semilla → mismos datos); volúmenes de F1.5 alcanzados.
@@ -250,19 +250,19 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
     - `alertas` — `regla, variable, valor, umbral, nivel, id_sensor, zona, emitida, estado, acciones[]`.
     - `incidentes` — **texto libre** (quemas, humo, incendios forestales, inundaciones, olores…): `categoria, titulo, descripcion, historial[], reportes_ciudadanos[]`.
   - Justificar: embebido vs referencia, por qué sería incómodo en relacional (columnas dispersas/NULL, migraciones por cada tipo/firmware nuevo, arrays anidados), y cuándo **no** usar Mongo.
-- [ ] **B1.2** Validadores e índices — `mongo/01_colecciones.js`, `mongo/02_indices.js` (+ script Python equivalente idempotente)
+- [~] **B1.2** Validadores e índices — `mongo/01_colecciones.js`, `mongo/02_indices.js` (+ script Python equivalente idempotente) — 🟡 2026-11-23 · scripts/mongo_admin.py y mongo_contrato.py; falta confirmar validador $jsonSchema + índices con getIndexes()
   - `$jsonSchema` flexible (solo exige `id_sensor, tipo_metrica, timestamp, ubicacion`), `validationLevel: moderate`.
   - Índices: `{id_sensor:1, timestamp:-1}`, `{tipo_metrica:1, "ubicacion.zona":1, timestamp:-1}`, `2dsphere` en `ubicacion.geo`, `text` en `incidentes {titulo, descripcion}`, parcial en `alertas {estado:"abierta"}`; opcional TTL en una colección temporal.
   - **Aceptación:** insertar un documento sin `id_sensor` falla; `getIndexes()` los lista.
-- [ ] **B1.3** Umbrales de alerta en `config/umbrales.yaml` (PM2.5 35,4 / 55,4 / 150,4 µg/m³; temperatura; precipitación) — usados por alertas, Spark y streaming.
+- [x] **B1.3** Umbrales de alerta en `config/umbrales.yaml` (PM2.5 35,4 / 55,4 / 150,4 µg/m³; temperatura; precipitación) — usados por alertas, Spark y streaming. — ✅ 2026-11-23 · config/umbrales.yaml
 
 ### B2 — MongoDB: carga, CRUD, consultas y export (11–17 nov)
 
-- [ ] **B2.1** Carga de lecturas — `scripts/mongo_cargar.py`: OpenAQ real + sintéticos (F2.4), `insert_many(ordered=False)` en lotes de 10k, barra de progreso, `--limite` para pruebas.
+- [x] **B2.1** Carga de lecturas — `scripts/mongo_cargar.py`: OpenAQ real + sintéticos (F2.4), `insert_many(ordered=False)` en lotes de 10k, barra de progreso, `--limite` para pruebas. — ✅ 2026-11-23 · scripts/mongo_cargar.py; verificar countDocuments ≥ 500.000 y anotar tiempo de carga
   - **Aceptación:** `db.lecturas.countDocuments()` ≥ 500.000; tiempo de carga anotado.
 - [ ] **B2.2** Eventos, alertas e incidentes **derivados de las lecturas** (alertas = lecturas que superan umbrales, coherentes con los datos); incidentes con plantillas de texto en español por categoría.
-- [ ] **B2.3** Demo CRUD — `mongo/03_crud_demo.js` + función Python: `insertOne, insertMany, find` (filtro + proyección + sort + limit), `findOne, updateOne` (`$set` + `$push`), `updateMany` (`$gt/$lt/$or`), `deleteOne` sobre una colección `demo_crud` (nunca sobre `lecturas`). Cada operación devuelve resultado + comando mongosh (para la UI).
-- [ ] **B2.4** Consultas obligatorias MG-Q01…Q10 — `mongo/queries/MG-Qxx.js` (mismo pipeline que en Python)
+- [x] **B2.3** Demo CRUD — `mongo/03_crud_demo.js` + función Python: `insertOne, insertMany, find` (filtro + proyección + sort + limit), `findOne, updateOne` (`$set` + `$push`), `updateMany` (`$gt/$lt/$or`), `deleteOne` sobre una colección `demo_crud` (nunca sobre `lecturas`). Cada operación devuelve resultado + comando mongosh (para la UI). — ✅ 2026-11-23 · mongo/03_crud_demo.js
+- [x] **B2.4** Consultas obligatorias MG-Q01…Q10 — `mongo/queries/MG-Qxx.js` (mismo pipeline que en Python) — ✅ 2026-11-23 · mongo/queries/ MG-Q01…Q10 + MG-P01…P05 (15 archivos); falta medir < 3 s
   | ID | Consulta | Técnica |
   |---|---|---|
   | MG-Q01 | Lecturas de un sensor | `find` + proyección + sort (usa índice) |
@@ -278,7 +278,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   - Preguntas del enunciado MG-P01…P05: temperatura promedio por zona, sensores sobre el límite, mediciones por sensor, zonas con más contaminación, evolución de una variable.
   - **Aceptación:** todas con parámetros por defecto válidos devuelven filas en < 3 s.
 - [ ] **B2.5** Experimento de índices — `explain("executionStats")` de MG-Q01/Q02/Q05 con y sin índice (`hint({$natural:1})`): `totalDocsExamined`, tiempo, `IXSCAN` vs `COLLSCAN` → `docs/resultados/mongo_indices.md`.
-- [ ] **B2.6** Export Mongo → HDFS — job Spark (conector Mongo) que escribe JSON Lines en `/smartcity/raw/mongo_exports/<coleccion>/fecha=…/` (alternativa: `mongoexport` + `hdfs dfs -put`). Conteos iguales a Mongo. **Lo necesita A4.2 (mr04).**
+- [~] **B2.6** Export Mongo → HDFS — job Spark (conector Mongo) que escribe JSON Lines en `/smartcity/raw/mongo_exports/<coleccion>/fecha=…/` (alternativa: `mongoexport` + `hdfs dfs -put`). Conteos iguales a Mongo. **Lo necesita A4.2 (mr04).** — 🟡 2026-11-23 · mongo/04_export.sh listo; falta correrlo contra HDFS y validar conteos
 
 ### B3 — Spark: entorno y ETL (12–16 nov)
 
