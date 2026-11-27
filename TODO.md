@@ -58,10 +58,10 @@ MongoDB ──(export JSON Lines)──► HDFS /smartcity/raw/mongo_exports/  [
 | A3 | HDFS: estructura, carga y operaciones | A | 5 | 0 | ⚪ |
 | A4 | Hadoop: MapReduce | A | 4 | 0 | ⚪ |
 | A5 | Módulo `conectores_postgres_hadoop.py` | A | 4 | 0 | ⚪ |
-| B1 | MongoDB: modelo, validadores e índices | B | 3 | 1 | 🟡 |
-| B2 | MongoDB: carga, CRUD, consultas y export | B | 6 | 3 | 🟡 |
-| B3 | Spark: entorno y ETL | B | 4 | 0 | ⚪ |
-| B4 | Spark: SQL obligatorias y análisis | B | 4 | 0 | ⚪ |
+| B1 | MongoDB: modelo, validadores e índices | B | 3 | 2 | 🟡 |
+| B2 | MongoDB: carga, CRUD, consultas y export | B | 6 | 4 | 🟡 |
+| B3 | Spark: entorno y ETL | B | 4 | 1 | 🟡 |
+| B4 | Spark: SQL obligatorias y análisis | B | 4 | 2 | 🟡 |
 | B5 | Módulo `conectores_mongo_spark.py` | B | 4 | 0 | ⚪ |
 | D | Dashboard Streamlit | AB | 8 | 0 | ⚪ |
 | C | Comparación tecnológica (experimentos) | AB | 3 | 0 | ⚪ |
@@ -80,8 +80,8 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 |---|---|---|
 | D-01 | `contrato.py` no tiene tipos para clima ni distingue contaminantes (todo es `calidad_aire`). **Propuesta:** agregar a `TIPOS_METRICA` `pm25, pm10, co, no2, o3, temperatura, humedad, precipitacion` con `UNIDADES` `µg/m3, µg/m3, µg/m3, µg/m3, µg/m3, °C, %, mm` (se conserva `calidad_aire` como categoría). | ⏳ acordar en F1.1 |
 | D-02 | Ciudad de referencia: `contrato.py` exige 5 zonas (Norte/Sur/Centro/Este/Oeste). Elegir **una ciudad real con ≥ 5 estaciones OpenAQ con PM2.5 y ≥ 2 años de historia** (verificar en explore.openaq.org) y asignar cada estación a una zona según su posición respecto al centro. Open-Meteo se consulta en el centroide de cada zona. | ⏳ F1.2 |
-| D-03 | KPIs de Movilidad y Energía del enunciado quedan fuera del dominio Ambiente. **Recomendado:** series sintéticas mínimas (`trafico`, `energia`, ya previstas en `contrato.py`) generadas por B con perfil horario y documentadas como sintéticas, para que el dashboard muestre todos los KPIs (criterio de 14 pts). Alternativa: tarjetas "fuera de dominio" con justificación (riesgo de perder puntos). | ⏳ F1.5 |
-| D-04 | Spark desde Streamlit: el driver en Windows conectado al master en Docker suele fallar (red y versión de Python). **Recomendado:** los jobs corren con `spark-submit` dentro de `smartcity_spark_master` (repo montado) y escriben resultados en PostgreSQL/HDFS; el dashboard los lee y tiene un botón "Recalcular" que lanza el job con `docker exec`. | ⏳ B3.1 |
+| D-03 | KPIs de Movilidad y Energía del enunciado quedan fuera del dominio Ambiente. **Recomendado:** series sintéticas mínimas (`trafico`, `energia`, ya previstas en `contrato.py`) generadas por B con perfil horario y documentadas como sintéticas, para que el dashboard muestre todos los KPIs (criterio de 14 pts). Alternativa: tarjetas "fuera de dominio" con justificación (riesgo de perder puntos). | 🟡 2026-11-26 · B implementó `trafico` sintético (`scripts/generar_trafico_sintetico.py`, 87.720 filas, T-001…T-005); `energia` pendiente |
+| D-04 | Spark desde Streamlit: el driver en Windows conectado al master en Docker suele fallar (red y versión de Python). **Recomendado:** los jobs corren con `spark-submit` dentro de `smartcity_spark_master` (repo montado) y escriben resultados en PostgreSQL/HDFS; el dashboard los lee y tiene un botón "Recalcular" que lanza el job con `docker exec`. | ✅ 2026-11-25 · adoptado: repo montado en `/opt/smartcity` y `spark-submit` vía `docker exec` (ver `docs/GUIA_SPARK.md`) |
 | D-05 | El compose usa 1 DataNode con `dfs.replication=1`: no se puede demostrar replicación ni tolerancia a fallos. **Propuesta:** 3 DataNodes y `replication=2`, más ResourceManager + NodeManager para MapReduce. | ⏳ F0.3 |
 | D-06 | Datos sintéticos para alcanzar los volúmenes mínimos (PG ≥ 100k, Mongo ≥ 500k, Spark ≥ 1 M, recomendado > 5 M total): sensores IoT virtuales por zona, anclados a los valores reales de OpenAQ/Open-Meteo + ruido + anomalías. Semilla fija `2026`. | ⏳ F1.5 |
 
@@ -91,7 +91,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 
 - [x] **F0.1** `docker/docker-compose.yml` con PostgreSQL 16, MongoDB 7, HDFS (bde2020 namenode + datanode) y Spark 3.5 (master + worker) — ✅ previo
 - [x] **F0.2** Guía `DOCKER_SETUP.md` y scripts init (`postgres-init/01_schema.sql`, `mongo-init/01_init.js`) — ✅ previo
-- [ ] **F0.3** Ajustes del compose para lo que pide el enunciado (D-04, D-05) — **A** (Hadoop) + **B** (Spark), un solo PR
+- [~] **F0.3** Ajustes del compose para lo que pide el enunciado (D-04, D-05) — **A** (Hadoop) + **B** (Spark), un solo PR — 🟡 2026-11-25 · parte B hecha: repo montado en master/worker, imagen `smartcity-spark-ml:3.5` (`docker/spark/Dockerfile` + `docker-compose.spark-ml.yml`, numpy/scipy para MLlib), conector Mongo vía `--packages`; falta parte A (3 DataNodes, replicación 2, YARN)
   - **Pasos:**
     1. **A:** `datanode1..3` (cada uno con su volumen, `hostname` propio, puertos 9864/9865/9866), `HDFS_CONF_dfs_replication=2`; agregar `resourcemanager`, `nodemanager` (y opcional `historyserver`) con imágenes `bde2020/hadoop-*:2.0.0-hadoop3.2.1-java8` y variables `YARN_CONF_*`/`MAPRED_CONF_*` en `hadoop.env`.
     2. **A:** comprobar `docker exec smartcity_nodemanager python3 --version` (lo necesita Hadoop Streaming). Si no hay Python: plan B = jobs MapReduce en Java (compilar dentro del contenedor). Anotar resultado.
@@ -250,7 +250,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
     - `alertas` — `regla, variable, valor, umbral, nivel, id_sensor, zona, emitida, estado, acciones[]`.
     - `incidentes` — **texto libre** (quemas, humo, incendios forestales, inundaciones, olores…): `categoria, titulo, descripcion, historial[], reportes_ciudadanos[]`.
   - Justificar: embebido vs referencia, por qué sería incómodo en relacional (columnas dispersas/NULL, migraciones por cada tipo/firmware nuevo, arrays anidados), y cuándo **no** usar Mongo.
-- [~] **B1.2** Validadores e índices — `mongo/01_colecciones.js`, `mongo/02_indices.js` (+ script Python equivalente idempotente) — 🟡 2026-11-23 · scripts/mongo_admin.py y mongo_contrato.py; falta confirmar validador $jsonSchema + índices con getIndexes()
+- [x] **B1.2** Validadores e índices — `mongo/01_colecciones.js`, `mongo/02_indices.js` (+ script Python equivalente idempotente) — ✅ 2026-11-25 · `scripts/mongo_admin.py` ($jsonSchema moderate, compuestos, 2dsphere, text, parcial, TTL); usado en la carga documentada en GUIA_SPARK §5.3 (no se crearon los .js equivalentes)
   - `$jsonSchema` flexible (solo exige `id_sensor, tipo_metrica, timestamp, ubicacion`), `validationLevel: moderate`.
   - Índices: `{id_sensor:1, timestamp:-1}`, `{tipo_metrica:1, "ubicacion.zona":1, timestamp:-1}`, `2dsphere` en `ubicacion.geo`, `text` en `incidentes {titulo, descripcion}`, parcial en `alertas {estado:"abierta"}`; opcional TTL en una colección temporal.
   - **Aceptación:** insertar un documento sin `id_sensor` falla; `getIndexes()` los lista.
@@ -258,9 +258,9 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 
 ### B2 — MongoDB: carga, CRUD, consultas y export (11–17 nov)
 
-- [x] **B2.1** Carga de lecturas — `scripts/mongo_cargar.py`: OpenAQ real + sintéticos (F2.4), `insert_many(ordered=False)` en lotes de 10k, barra de progreso, `--limite` para pruebas. — ✅ 2026-11-23 · scripts/mongo_cargar.py; verificar countDocuments ≥ 500.000 y anotar tiempo de carga
+- [x] **B2.1** Carga de lecturas — `scripts/mongo_cargar.py`: OpenAQ real + sintéticos (F2.4), `insert_many(ordered=False)` en lotes de 10k, barra de progreso, `--limite` para pruebas. — ✅ 2026-11-25 · `lectura` = 1.068.777 documentos (≥ 500k); falta anotar tiempo de carga
   - **Aceptación:** `db.lecturas.countDocuments()` ≥ 500.000; tiempo de carga anotado.
-- [ ] **B2.2** Eventos, alertas e incidentes **derivados de las lecturas** (alertas = lecturas que superan umbrales, coherentes con los datos); incidentes con plantillas de texto en español por categoría.
+- [x] **B2.2** Eventos, alertas e incidentes **derivados de las lecturas** — ✅ 2026-11-23 · generados en `scripts/generar_sinteticos.py` (alertas por umbral, eventos contaminación/falla/lluvia/ola de calor, 3.000 incidentes); 1.420 eventos en Mongo — (alertas = lecturas que superan umbrales, coherentes con los datos); incidentes con plantillas de texto en español por categoría.
 - [x] **B2.3** Demo CRUD — `mongo/03_crud_demo.js` + función Python: `insertOne, insertMany, find` (filtro + proyección + sort + limit), `findOne, updateOne` (`$set` + `$push`), `updateMany` (`$gt/$lt/$or`), `deleteOne` sobre una colección `demo_crud` (nunca sobre `lecturas`). Cada operación devuelve resultado + comando mongosh (para la UI). — ✅ 2026-11-23 · mongo/03_crud_demo.js
 - [x] **B2.4** Consultas obligatorias MG-Q01…Q10 — `mongo/queries/MG-Qxx.js` (mismo pipeline que en Python) — ✅ 2026-11-23 · mongo/queries/ MG-Q01…Q10 + MG-P01…P05 (15 archivos); falta medir < 3 s
   | ID | Consulta | Técnica |
@@ -278,23 +278,23 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   - Preguntas del enunciado MG-P01…P05: temperatura promedio por zona, sensores sobre el límite, mediciones por sensor, zonas con más contaminación, evolución de una variable.
   - **Aceptación:** todas con parámetros por defecto válidos devuelven filas en < 3 s.
 - [ ] **B2.5** Experimento de índices — `explain("executionStats")` de MG-Q01/Q02/Q05 con y sin índice (`hint({$natural:1})`): `totalDocsExamined`, tiempo, `IXSCAN` vs `COLLSCAN` → `docs/resultados/mongo_indices.md`.
-- [~] **B2.6** Export Mongo → HDFS — job Spark (conector Mongo) que escribe JSON Lines en `/smartcity/raw/mongo_exports/<coleccion>/fecha=…/` (alternativa: `mongoexport` + `hdfs dfs -put`). Conteos iguales a Mongo. **Lo necesita A4.2 (mr04).** — 🟡 2026-11-23 · mongo/04_export.sh listo; falta correrlo contra HDFS y validar conteos
+- [~] **B2.6** Export Mongo → HDFS — job Spark (conector Mongo) que escribe JSON Lines en `/smartcity/raw/mongo_exports/<coleccion>/fecha=…/` (alternativa: `mongoexport` + `hdfs dfs -put`). Conteos iguales a Mongo. **Lo necesita A4.2 (mr04).** — 🟡 2026-11-26 · `mongo/04_export.sh` + `scripts/subir_crudos_hdfs.py --fuentes mongo` → `/smartcity/raw/mongo_exports/<coleccion>/fecha=…/`; falta exportar `evento` y validar conteos Mongo = HDFS
 
 ### B3 — Spark: entorno y ETL (12–16 nov)
 
-- [ ] **B3.1** Entorno Spark (D-04): `spark/jobs/common.py` con `get_spark()` (master `spark://spark-master:7077`, `fs.defaultFS=hdfs://namenode:8020`, conector Mongo, JDBC PostgreSQL, `spark.sql.session.timeZone=UTC`) + `scripts/spark_submit.ps1 <job>` que ejecuta `docker exec smartcity_spark_master spark-submit /opt/smartcity/spark/jobs/<job>.py`.
+- [x] **B3.1** Entorno Spark (D-04) — ✅ 2026-11-25 · jobs con `spark-submit` en `smartcity_spark_master` contra workers, leen HDFS y Mongo (conector 10.4.1); sin `common.py`/`spark_submit.ps1` (cada job crea su sesión; comandos en GUIA_SPARK) — `spark/jobs/common.py` con `get_spark()` (master `spark://spark-master:7077`, `fs.defaultFS=hdfs://namenode:8020`, conector Mongo, JDBC PostgreSQL, `spark.sql.session.timeZone=UTC`) + `scripts/spark_submit.ps1 <job>` que ejecuta `docker exec smartcity_spark_master spark-submit /opt/smartcity/spark/jobs/<job>.py`.
   - **Aceptación:** job trivial `spark.range(1_000_000).count()` aparece en la UI :8080 ejecutado por los workers; lee un archivo de HDFS y una colección de Mongo.
-- [ ] **B3.2** ETL ambiente — `spark/jobs/etl_ambiente.py`
+- [~] **B3.2** ETL ambiente — `spark/jobs/etl_ambiente.py` — 🟡 2026-11-26 · `etl_ambiente.py` (Mongo → Parquet, 4.389.705 filas, esquema explícito) + `etl_ambiente_hdfs.py` (raw OpenAQ/Open-Meteo/mongo_exports, dedup, `anio/mes`); falta join con maestros de PG (usa `sensores.csv`) y mover de `sandbox` a `/smartcity/curated/ambiente/`
   - raw OpenAQ + Open-Meteo + `mongo_exports/lecturas` (HDFS) → esquemas explícitos (`StructType`, nunca `inferSchema`) → limpieza (nulos, negativos, duplicados por sensor+timestamp, fuera de rango) → formato largo `zona, timestamp, id_sensor, tipo_metrica, valor, fuente` (igual al contrato) → join con zonas/sensores de PG (broadcast) → `/smartcity/curated/ambiente/` Parquet particionado por `anio/mes`.
   - **Aceptación:** ≥ 1 M filas procesadas; % descartado documentado; job usa los workers.
-- [ ] **B3.3** ETL de `trafico`/`energia` sintéticos (solo si D-03 aprobado), mismo patrón.
-- [ ] **B3.4** Carga a PostgreSQL — `spark/jobs/carga_pg.py` (**depende de A2.4**)
+- [~] **B3.3** ETL de `trafico`/`energia` sintéticos (solo si D-03 aprobado), mismo patrón. — 🟡 2026-11-26 · tráfico: CSV generado, subido a `/smartcity/raw/trafico/` y leído por `movilidad_trafico.py` (validación + esquema); falta energía y salida curada; no validado aún en el clúster
+- [!] **B3.4** Carga a PostgreSQL — `spark/jobs/carga_pg.py` (**depende de A2.4**) — bloqueada: tablas destino de A aún no existen
   - Agregados por sensor-variable-hora → `medicion_horaria` (vía tabla staging + `INSERT … ON CONFLICT DO NOTHING`), por zona-hora → `agg_ambiente_hora_zona`; al final `CALL sp_refrescar_mv()`.
   - **Aceptación:** conteos Spark = PostgreSQL; re-ejecutar no duplica; `medicion_horaria` ≥ 100k filas (mínimo PG del enunciado).
 
 ### B4 — Spark: SQL obligatorias y análisis (15–19 nov)
 
-- [ ] **B4.1** Consultas obligatorias SP-Q01…Q10 — `spark/sql/SP-Qxx.sql` sobre vistas temporales (`ambiente`, `lecturas`, `eventos`, `zona`, `sensor`)
+- [x] **B4.1** Consultas obligatorias SP-Q01…Q10 — ✅ 2026-11-25 · `spark/sql/SP-Q01…Q10.sql` + `spark/jobs/ejecutar_consultas.py`, 10/10 ejecutadas; pendientes menores: `PIVOT` explícito en SP-Q09, SP-Q10 a `spark_kpi_zona` (PG) — — `spark/sql/SP-Qxx.sql` sobre vistas temporales (`ambiente`, `lecturas`, `eventos`, `zona`, `sensor`)
   | ID | Consulta | Técnica |
   |---|---|---|
   | SP-Q01 | Sensores que generan más información | `GROUP BY` + `ORDER BY` |
@@ -307,10 +307,10 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   | SP-Q08 | Agrupamiento por categorías | `ROLLUP/CUBE` categoría-tipo-zona |
   | SP-Q09 | Comparación histórica entre años | `PIVOT` por año |
   | SP-Q10 | Reporte consolidado | KPIs por zona → `spark_kpi_zona` (PG) + `/smartcity/analytics/reporte/` |
-- [ ] **B4.2** Los 8 análisis obligatorios — `spark/jobs/analitica.py` (DataFrame API), resultados en `/smartcity/analytics/<tipo>/` y tablas `spark_*`
+- [x] **B4.2** Los 8 análisis obligatorios — ✅ 2026-11-26 · `spark/jobs/analitica.py` + `movilidad_trafico.py` (tráfico simulado), resultados en `sandbox/analitica/`, `docs/resultados/hallazgos_spark.md`; pendientes menores: IQR en anomalías, tablas `spark_*` en PG — — `spark/jobs/analitica.py` (DataFrame API), resultados en `/smartcity/analytics/<tipo>/` y tablas `spark_*`
   - **Descriptivo** (sensores más activos, estadísticos por variable) · **Temporal** (evolución mensual de PM2.5, curva diaria de temperatura) · **Correlacional** (matriz PM2.5–PM10–temperatura–humedad–precipitación–viento) · **Predictivo** (MLlib `LinearRegression`/`GBTRegressor`: PM2.5 diario por zona según clima; reportar RMSE/R² y pronóstico) · **Espacial** (zonas más contaminadas, hotspots) · **Movilidad** (horas pico de contaminación por zona × día de semana; con tráfico real si D-03) · **Anomalías** (z-score + IQR por sensor) · **Comparación** (perfil por zona; **"Top 3 zonas con mayor incremento de PM2.5 en hora pico vs valle"** → gráfico Spark del dashboard).
   - **Aceptación:** `docs/resultados/hallazgos_spark.md` con números concretos.
-- [ ] **B4.3** Optimización Spark (evidencia) — `docs/resultados/spark_optimizacion.md`: CSV vs Parquet (tiempo y bytes), *partition pruning* (`explain()` → `PartitionFilters`), broadcast vs sort-merge join, `cache()`, AQE on/off. Capturas de la Spark UI.
+- [~] **B4.3** Optimización Spark (evidencia) — 🟡 2026-11-26 · `spark/jobs/optimizar_spark.py` (particiones, join, AQE, cache, CSV vs Parquet); falta correr y escribir `spark_optimizacion.md` con capturas — — `docs/resultados/spark_optimizacion.md`: CSV vs Parquet (tiempo y bytes), *partition pruning* (`explain()` → `PartitionFilters`), broadcast vs sort-merge join, `cache()`, AQE on/off. Capturas de la Spark UI.
 - [ ] **B4.4** Documentar — `docs/tecnico/08_procesamiento.md`: flujo, cada job (entrada → transformaciones → salida), transformaciones vs acciones, evaluación perezosa, particionamiento, **por qué Spark y no PostgreSQL** para esto.
 
 ### B5 — Módulo `conectores_mongo_spark.py` (12–19 nov)
