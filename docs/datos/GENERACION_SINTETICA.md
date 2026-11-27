@@ -55,3 +55,34 @@ Con `doy` = día del año, `h` = hora UTC, `AR(φ, σ)` = ruido autorregresivo.
 
 Cumple el mínimo de MongoDB (≥ 500.000) y el de Spark (≥ 1.000.000 procesados). Al incorporar OpenAQ y Open-Meteo reales
 los sensores `S-001…S-010` pasan de ~17.500 a la cantidad de horas con dato real.
+
+## 6. Movilidad y energía simulados (D-03)
+
+Son series **sintéticas mínimas** para que el dashboard muestre los KPI de Movilidad y Energía del enunciado. No son mediciones observadas: el patrón horario es un **supuesto del generador**, no un hallazgo. Ambas usan la hora civil de Londres (BST/GMT) para el perfil diario, guardan `timestamp_utc` en UTC y marcan `origen = sintetico`.
+
+### 6.1 Tráfico — `scripts/generar_trafico_sintetico.py`
+
+- 5 contadores virtuales (`T-001`…`T-005`, uno por zona), 1 lectura por hora, 2023–2024 → **87.720 filas**. Semilla `2026 + año`.
+- Capacidad (vehículos/h): Norte 1.050 · Sur 840 · Centro 1.500 · Este 980 · Oeste 780. Velocidad libre (km/h): 54 · 48 · 44 · 51 · 55.
+- Perfil laborable = 0,12 + 0,63·g(8; 1,6) + 0,70·g(18; 1,8) + 0,34·g(13; 3,5); fin de semana = 0,15 + 0,52·g(14; 4,2), donde g(c; a) = exp(−½((h−c)/a)²).
+- vehículos = capacidad · perfil · (1 + 0,07·cos(2π(doy−25)/365,25)) · N(1; 0,08).
+- velocidad = velocidad_libre · (1 − 0,63·min(1, ocupación)) + N(0; 2), acotada a [7, velocidad_libre]; congestión % = 100·(1 − velocidad / velocidad_libre).
+
+### 6.2 Energía — `scripts/generar_energia_sintetica.py`
+
+- 5 medidores agregados por zona (`E-001`…`E-005`), consumo horario en kWh, 2023–2024 → **87.720 filas**. Semilla `2026 + 100 + año`.
+- consumo_kWh = población_zona (`config/zonas.yaml`) · 0,5 kWh/persona·h · perfil(hora, laborable, tipo_zona) · (1 + 0,18·cos(2π(doy−15)/365,25)) · N(1; 0,05).
+- Perfiles según `tipo_zona`: **residencial** 0,55 + 0,35·g(8; 1,3) + 0,55·g(19,5; 1,8) (fin de semana 0,60 + 0,25·g(10; 2) + 0,50·g(19,5; 2)); **comercial** 0,45 + 0,75 entre 09 y 18 h en días laborables (0,55 el fin de semana); **industrial** 0,50 + 0,60 entre 06 y 22 h (×0,6 el fin de semana); **mixta** = promedio de residencial y comercial.
+- El término estacional sube el consumo en invierno (calefacción e iluminación).
+
+### 6.3 Flujo
+
+`generar_*` → `data/raw/{trafico,energia}/*.csv` → `scripts/subir_crudos_hdfs.py --fuentes trafico energia` → `/smartcity/raw/{trafico,energia}/` → `spark/jobs/etl_trafico_energia.py` (B3.3) → Parquet en formato largo (`tipo_metrica` = trafico [vehículos/h] | energia [kWh]) → dashboard (`kpis_movilidad`, `kpis_energia`). El tráfico también lo usa `movilidad_trafico.py` (B4.2) para cruzarlo con PM2.5 y lluvia.
+
+## 7. Lecturas en tiempo real simuladas (reto de streaming)
+
+`scripts/streaming_productor.py` envía un lote cada `--intervalo` segundos a HDFS `/smartcity/streaming/entrada/lote_<epoch_ms>.json` (JSON Lines). Cada lote trae una lectura de PM2.5 y una de tráfico por zona, con `timestamp` = ahora (UTC) y `origen = streaming_simulado`.
+
+- PM2.5 = base_zona (Norte 12, Sur 10, Centro 14, Este 9,5, Oeste 8 µg/m³, igual que §2) · (1 + 0,35·hora_pico) · N(1; 0,10), con hora_pico = g(8; 1,6) + g(18; 2) en hora de Londres. Con `--episodio ZONA` se multiplica por `--factor` (4 por defecto), para provocar alertas.
+- Vehículos/hora = capacidad del contador (§6.1) · perfil horario (§6.1) · N(1; 0,08). Con `--congestion ZONA` se multiplica por 1,8.
+- Sensores usados: S-011, S-017, S-024, S-029 y S-035 (sensores virtuales de aire activos, uno por zona) y T-001…T-005.

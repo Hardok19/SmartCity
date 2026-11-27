@@ -22,3 +22,6 @@ data/interim/
 *.bak
 *.bak-*
 *.log
+
+# Muestras pequeñas versionadas para pruebas (tests/test_mapreduce.py)
+!data/samples/*.jsonl

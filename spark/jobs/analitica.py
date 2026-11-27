@@ -601,6 +601,9 @@ def analizar_anomalias(df):
        todas las variables del documento. Se escoge la metrica principal.
     B) En el Parquet curado se aplica |Z| >= 3 por sensor/indicador, tomando
        estadisticas sobre las lecturas validas (minimo 30 valores).
+    C) En el Parquet curado se aplica la regla IQR (Tukey) por sensor/indicador:
+       valor < Q1 - 1,5*IQR o valor > Q3 + 1,5*IQR (minimo 30 valores, IQR > 0).
+       B y C pueden detectar la misma lectura: se cuentan por metodo.
 
     Ambas poblaciones son disjuntas por diseño del ETL: los documentos
     invalidos fueron excluidos del Parquet curado. Por ello no se duplican
@@ -652,6 +655,41 @@ def analizar_anomalias(df):
             F.round("valor", 3).alias("valor"),
             F.lit("z_score").alias("metodo_deteccion"),
             F.lit("abs(z)>=3 (referencia: lecturas limpias)").alias("detalle"),
+            F.round("z_score", 3).alias("z_score"), "origen",
+        )
+    )
+
+    # Regla IQR por sensor/indicador (percentiles aproximados, precision 1000).
+    cuartiles = (
+        validas.groupBy("id_sensor", "tipo_metrica")
+        .agg(
+            F.count("*").alias("n_iqr"),
+            F.percentile_approx("valor", F.array(F.lit(0.25), F.lit(0.75)), 1000).alias("q"),
+        )
+        .withColumn("q1", F.col("q").getItem(0))
+        .withColumn("q3", F.col("q").getItem(1))
+        .withColumn("iqr", F.col("q3") - F.col("q1"))
+        .withColumn("limite_inferior", F.col("q1") - 1.5 * F.col("iqr"))
+        .withColumn("limite_superior", F.col("q3") + 1.5 * F.col("iqr"))
+        .drop("q")
+    )
+    iqr_atipicos = (
+        validas.join(F.broadcast(cuartiles), ["id_sensor", "tipo_metrica"], "inner")
+        .filter(
+            (F.col("n_iqr") >= 30)
+            & (F.col("iqr") > 0)
+            & ((F.col("valor") < F.col("limite_inferior")) | (F.col("valor") > F.col("limite_superior")))
+        )
+        .join(F.broadcast(estadisticas), ["id_sensor", "tipo_metrica"], "left")
+        .withColumn("z_score", z_score_columna())
+        .select(
+            "id_sensor", "zona", "timestamp", "tipo_metrica",
+            F.round("valor", 3).alias("valor"),
+            F.lit("iqr").alias("metodo_deteccion"),
+            F.concat(
+                F.lit("fuera de ["), F.round("limite_inferior", 3).cast("string"), F.lit(", "),
+                F.round("limite_superior", 3).cast("string"), F.lit("] (Q1-1.5IQR, Q3+1.5IQR)"),
+            ).alias("detalle"),
             F.round("z_score", 3).alias("z_score"), "origen",
         )
     )
@@ -752,7 +790,7 @@ def analizar_anomalias(df):
     # Son conjuntos disjuntos: marcadas=Mongo invalidas, z_scores=ETL limpio.
     # Deduplicamos por sensor, instante, metrica y metodo como salvaguarda.
     detalle = (
-        marcadas.unionByName(z_scores)
+        marcadas.unionByName(z_scores).unionByName(iqr_atipicos)
         .dropDuplicates(["id_sensor", "timestamp", "tipo_metrica", "metodo_deteccion"])
     )
     ruta_detalle = f"{SALIDA}/anomalias_detalle"
@@ -763,13 +801,15 @@ def analizar_anomalias(df):
     conteos = {r["metodo_deteccion"]: int(r["count"]) for r in resumen_metodo.collect()}
     n_marcadas = conteos.get("marca_calidad", 0)
     n_z = conteos.get("z_score", 0)
+    n_iqr = conteos.get("iqr", 0)
     print(f"SMARTCITY_B42_ANOMALIAS_MARCADAS={n_marcadas}", flush=True)
     print(f"SMARTCITY_B42_ANOMALIAS_ZSCORE={n_z}", flush=True)
+    print(f"SMARTCITY_B42_ANOMALIAS_IQR={n_iqr}", flush=True)
     print(f"SMARTCITY_B42_ANOMALIAS_TOTAL={conteo_total}", flush=True)
     print(f"SMARTCITY_B42_ANOMALIAS_DETALLE_RUTA={ruta_detalle}", flush=True)
-    if conteo_total != n_marcadas + n_z:
+    if conteo_total != n_marcadas + n_z + n_iqr:
         raise RuntimeError("El conteo por metodos no coincide con el total de anomalías")
-    if n_marcadas == 0 or n_z == 0:
+    if n_marcadas == 0 or n_z == 0 or n_iqr == 0:
         print("SMARTCITY_B42_ANOMALIAS_AVISO=Alguno de los metodos no produjo casos; revisar datos y umbral", flush=True)
     print("=== MUESTRA DE ANOMALIAS MARCADAS ===", flush=True)
     detalle_guardado.filter(F.col("metodo_deteccion") == "marca_calidad")\
@@ -777,6 +817,16 @@ def analizar_anomalias(df):
     print("=== MUESTRA DE ANOMALIAS POR Z-SCORE ===", flush=True)
     detalle_guardado.filter(F.col("metodo_deteccion") == "z_score")\
         .orderBy(F.desc(F.abs("z_score"))).show(10, truncate=False)
+    print("=== MUESTRA DE ANOMALIAS POR IQR ===", flush=True)
+    detalle_guardado.filter(F.col("metodo_deteccion") == "iqr")        .orderBy(F.desc("timestamp")).show(10, truncate=False)
+    print("=== COINCIDENCIA Z-SCORE / IQR (misma lectura detectada por ambos) ===", flush=True)
+    coinciden = (
+        detalle_guardado.filter(F.col("metodo_deteccion") == "z_score").select("id_sensor", "timestamp", "tipo_metrica")
+        .join(detalle_guardado.filter(F.col("metodo_deteccion") == "iqr").select("id_sensor", "timestamp", "tipo_metrica"),
+              ["id_sensor", "timestamp", "tipo_metrica"], "inner")
+        .count()
+    )
+    print(f"SMARTCITY_B42_ANOMALIAS_ZSCORE_E_IQR={coinciden}", flush=True)
 
     # Resumen para informes y graficos de calidad del dato.
     resumen = (
@@ -806,6 +856,8 @@ def analizar_anomalias(df):
                   .otherwise(0)).alias("marcadas"),
             F.sum(F.when(F.col("metodo_deteccion") == "z_score", 1)
                   .otherwise(0)).alias("estadisticas"),
+            F.sum(F.when(F.col("metodo_deteccion") == "iqr", 1)
+                  .otherwise(0)).alias("iqr"),
             F.round(F.max(F.abs("z_score")), 3).alias("zscore_absoluto_maximo"),
         )
     )
@@ -828,7 +880,7 @@ def analizar_anomalias(df):
         print("SMARTCITY_B42_ANOMALIAS_AVISO=Algunos documentos marcados no tenian metrica principal utilizable", flush=True)
     if n_marcadas > n_mongo:
         raise RuntimeError("Se crearon mas marcas que documentos marcados en MongoDB")
-    print("SMARTCITY_B42_ANOMALIAS_METODOLOGIA=marcadas=MongoDB invalido; z_score=Parquet curado; no representan necesariamente anomalías independientes de origen externo", flush=True)
+    print("SMARTCITY_B42_ANOMALIAS_METODOLOGIA=marcadas=MongoDB invalido; z_score e iqr=Parquet curado; no representan necesariamente anomalías independientes de origen externo", flush=True)
 
 def analizar_comparativo(df):
     """B4.2: compara el comportamiento anual de indicadores y zonas.
@@ -1043,7 +1095,7 @@ def main():
             print("=== B4.2 MOVILIDAD: TRAFICO SIMULADO ===", flush=True)
             analizar_trafico(spark, df)
         if "anomalias" in seleccionados:
-            print("=== B4.2 ANOMALIAS: MARCAS DE CALIDAD + Z-SCORE ===", flush=True)
+            print("=== B4.2 ANOMALIAS: MARCAS DE CALIDAD + Z-SCORE + IQR ===", flush=True)
             analizar_anomalias(df)
         if "comparativo" in seleccionados:
             print("=== B4.2 COMPARATIVO ENTRE ZONAS (2023 VS 2024) ===", flush=True)

@@ -1,24 +1,34 @@
 #!/usr/bin/env bash
-# 04_export.sh — alternativa demostrativa a `smartcity spark export-mongo` (F6.8): mongoexport + hdfs dfs -put.
+# 04_export.sh — B2.6, alternativa con mongoexport a `python scripts/subir_crudos_hdfs.py --fuentes mongo`.
 # Se ejecuta desde el HOST en la raíz del repo (Git Bash/Linux):  bash mongo/04_export.sh [coleccion ...]
-# Sin argumentos exporta evento, alerta, incidente y lectura (la que necesita el ETL de Spark, B3.2).
-# Requiere que mongo y namenode tengan el repo montado en /opt/smartcity (volumen "../:/opt/smartcity").
-# COMPOSE_FILE: ruta al compose si no se ejecuta desde docker/ (por defecto docker/docker-compose.yml).
-# Deja un único JSON Lines por colección en /smartcity/raw/mongo_exports_mongoexport/<coleccion>/ (sin particionar:
-# el job de Spark es la vía principal porque lee en paralelo y particiona por fecha).
+# Sin argumentos exporta evento, alerta, incidente y lectura.
+# Destino (mismo que el script Python): /smartcity/raw/mongo_exports/<coleccion>/fecha=<AAAA-MM-DD>/<coleccion>.jsonl
+# Valida que el número de documentos en Mongo sea igual al número de líneas en HDFS.
 set -euo pipefail
-export MSYS_NO_PATHCONV=1   # Git Bash: no convertir rutas /opt/... a rutas de Windows
+export MSYS_NO_PATHCONV=1   # Git Bash: no convertir rutas /tmp/... a rutas de Windows
 
-USUARIO="${MONGO_USER:-smartcity}"; CLAVE="${MONGO_PASSWORD:-smartcity_dev}"; BD="${MONGO_DB:-smartcity}"
-LOCAL=/opt/smartcity/data/interim/mongoexport          # carpeta compartida por los contenedores (repo montado)
-DESTINO=/smartcity/raw/mongo_exports_mongoexport
-COMPOSE="docker compose -f ${COMPOSE_FILE:-docker/docker-compose.yml}"
-COLECCIONES=("${@:-evento alerta incidente lectura}")
+USUARIO="${MONGO_USER:-smartcity}"; CLAVE="${MONGO_PASSWORD:-smartcity123}"; BD="${MONGO_DB:-smartcity_db}"
+MONGO="${CONTENEDOR_MONGO:-smartcity_mongo}"; NAMENODE="${CONTENEDOR_NAMENODE:-smartcity_namenode}"
+FECHA="${FECHA:-$(date -u +%F)}"
+DESTINO=/smartcity/raw/mongo_exports
+TMP_HOST="$(mktemp -d)"
+trap 'rm -rf "$TMP_HOST"' EXIT
+if [ "$#" -gt 0 ]; then COLECCIONES=("$@"); else COLECCIONES=(evento alerta incidente lectura); fi
 
-for c in ${COLECCIONES[@]}; do
+for c in "${COLECCIONES[@]}"; do
   echo "== $c"
-  $COMPOSE exec -T mongo bash -c "mkdir -p $LOCAL && mongoexport --quiet -u $USUARIO -p $CLAVE \
-    --authenticationDatabase $BD -d $BD -c $c --type=json -o $LOCAL/$c.jsonl && wc -l < $LOCAL/$c.jsonl"
-  $COMPOSE exec -T namenode bash -c "hdfs dfs -mkdir -p $DESTINO/$c && \
-    hdfs dfs -put -f $LOCAL/$c.jsonl $DESTINO/$c/ && hdfs dfs -ls $DESTINO/$c"
+  n_mongo=$(docker exec "$MONGO" mongosh --quiet -u "$USUARIO" -p "$CLAVE" --authenticationDatabase admin \
+    "$BD" --eval "db.$c.countDocuments({})")
+  docker exec "$MONGO" mongoexport --quiet -u "$USUARIO" -p "$CLAVE" --authenticationDatabase admin \
+    -d "$BD" -c "$c" --type=json -o "/tmp/$c.jsonl"
+  docker cp "$MONGO:/tmp/$c.jsonl" "$TMP_HOST/$c.jsonl"
+  docker exec "$MONGO" rm -f "/tmp/$c.jsonl"
+  docker cp "$TMP_HOST/$c.jsonl" "$NAMENODE:/tmp/$c.jsonl"
+  docker exec "$NAMENODE" bash -c "hdfs dfs -mkdir -p $DESTINO/$c/fecha=$FECHA && \
+    hdfs dfs -put -f /tmp/$c.jsonl $DESTINO/$c/fecha=$FECHA/$c.jsonl && rm -f /tmp/$c.jsonl"
+  n_hdfs=$(docker exec "$NAMENODE" bash -c "hdfs dfs -cat $DESTINO/$c/fecha=$FECHA/$c.jsonl | wc -l")
+  if [ "$n_mongo" -ne "$n_hdfs" ]; then
+    echo "ERROR $c: Mongo=$n_mongo HDFS=$n_hdfs" >&2; exit 1
+  fi
+  echo "OK $c: Mongo=$n_mongo HDFS=$n_hdfs -> $DESTINO/$c/fecha=$FECHA/"
 done

@@ -1,0 +1,12 @@
+# NodeManager de YARN + Python 3 para Hadoop Streaming (los mappers/reducers de hadoop/mapreduce son Python).
+# La imagen base es Debian 9 (stretch), cuyos repositorios se movieron a archive.debian.org.
+FROM bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
+
+RUN printf 'deb http://archive.debian.org/debian stretch main\ndeb http://archive.debian.org/debian-security stretch/updates main\n' > /etc/apt/sources.list \
+ && apt-get -o Acquire::Check-Valid-Until=false update \
+ && apt-get install -y --no-install-recommends python3 \
+ && rm -rf /var/lib/apt/lists/* \
+ && python3 -c "import json, heapq; print('python3 OK')"
+
+# Entrada/salida de los mappers en UTF-8 (sin LANG, Python 3.5 usaría ASCII)
+ENV PYTHONIOENCODING=utf-8 LANG=C.UTF-8

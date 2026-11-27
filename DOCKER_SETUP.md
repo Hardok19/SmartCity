@@ -104,7 +104,7 @@ docker compose ps
 ```
 
 Deben aparecer 6 contenedores: `smartcity_postgres`, `smartcity_mongo`,
-`smartcity_namenode`, `smartcity_datanode`, `smartcity_spark_master`,
+`smartcity_namenode`, `smartcity_datanode1..3`, `smartcity_resourcemanager`, `smartcity_nodemanager`, `smartcity_spark_master`,
 `smartcity_spark_worker`, todos en estado `Up` (Postgres/Mongo idealmente `healthy`).
 
 ---
@@ -163,7 +163,7 @@ pip install psycopg2-binary pymongo hdfs pyspark
 ```python
 # PostgreSQL
 import psycopg2
-conn = psycopg2.connect(host="localhost", port=5432,
+conn = psycopg2.connect(host="localhost", port=5433,
     dbname="smartcity_db", user="smartcity", password="smartcity123")
 print("Postgres OK")
 

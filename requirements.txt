@@ -1,0 +1,17 @@
+# Python del anfitrión (scripts, conectores y dashboard). Los jobs Spark corren en la imagen Docker.
+pandas
+numpy
+pyarrow
+requests
+python-dotenv
+pyyaml
+psycopg2-binary
+sqlalchemy
+pymongo
+hdfs
+docker
+pyspark==3.5.*
+streamlit>=1.50
+plotly
+pydeck
+pytest
