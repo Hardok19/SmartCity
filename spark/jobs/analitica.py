@@ -14,6 +14,7 @@ import math
 from itertools import combinations_with_replacement
 
 from pyspark.sql import SparkSession, functions as F, types as T
+from movilidad_trafico import analizar_trafico
 from pyspark.sql.window import Window
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.regression import LinearRegression
@@ -1039,6 +1040,8 @@ def main():
         if "movilidad" in seleccionados:
             print("=== B4.2 MOVILIDAD (PROXY AMBIENTAL; NO TRAFICO REAL) ===", flush=True)
             analizar_movilidad(df)
+            print("=== B4.2 MOVILIDAD: TRAFICO SIMULADO ===", flush=True)
+            analizar_trafico(spark, df)
         if "anomalias" in seleccionados:
             print("=== B4.2 ANOMALIAS: MARCAS DE CALIDAD + Z-SCORE ===", flush=True)
             analizar_anomalias(df)
