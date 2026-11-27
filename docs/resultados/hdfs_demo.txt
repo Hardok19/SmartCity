@@ -1,0 +1,90 @@
+# Demostración HDFS — 2026-11-27 13:32 UTC
+# Archivo: data/raw/trafico/trafico_2024.csv (2.7M), bloque por defecto 128 MB, bloque de prueba 1 MB
+
+$ hdfs dfsadmin -report | grep -E 'Live datanodes|^Name:|DFS Used%'
+DFS Used%: 0.00%
+Live datanodes (3):
+Name: 172.18.0.7:9866 (smartcity_datanode1.docker_default)
+DFS Used%: 0.00%
+Name: 172.18.0.8:9866 (smartcity_datanode2.docker_default)
+DFS Used%: 0.00%
+Name: 172.18.0.9:9866 (smartcity_datanode3.docker_default)
+DFS Used%: 0.00%
+
+$ hdfs dfs -rm -r -f -skipTrash /smartcity/sandbox/demo > /dev/null; hdfs dfs -mkdir -p /smartcity/sandbox/demo/bloque_defecto /smartcity/sandbox/demo/bloque_pequeno
+
+$ hdfs dfs -put /tmp/trafico_2024.csv /smartcity/sandbox/demo/bloque_defecto/
+
+$ hdfs dfs -D dfs.blocksize=1048576 -put /tmp/trafico_2024.csv /smartcity/sandbox/demo/bloque_pequeno/
+
+$ hdfs dfs -ls -R /smartcity/sandbox/demo
+drwxr-xr-x   - root supergroup          0 2026-11-27 13:32 /smartcity/sandbox/demo/bloque_defecto
+-rw-r--r--   2 root supergroup    2787298 2026-11-27 13:32 /smartcity/sandbox/demo/bloque_defecto/trafico_2024.csv
+drwxr-xr-x   - root supergroup          0 2026-11-27 13:32 /smartcity/sandbox/demo/bloque_pequeno
+-rw-r--r--   2 root supergroup    2787298 2026-11-27 13:32 /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv
+
+$ hdfs dfs -cat /smartcity/sandbox/demo/bloque_defecto/trafico_2024.csv | head -n 5
+timestamp_utc,zona,id_sensor,vehiculos_hora,velocidad_promedio_kmh,congestion_pct,origen
+2024-01-01T00:00:00Z,Zona Norte,T-001,109,51.56,4.53,sintetico
+2024-01-01T00:00:00Z,Zona Sur,T-002,121,44.08,8.16,sintetico
+2024-01-01T00:00:00Z,Zona Centro,T-003,207,37.34,15.13,sintetico
+2024-01-01T00:00:00Z,Zona Este,T-004,121,50.37,1.23,sintetico
+cat: Unable to write to output stream.
+
+$ hdfs dfs -stat 'tamaño=%b bytes, bloque=%o bytes, réplicas=%r, modificado=%y' /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv
+tama??o=2787298 bytes, bloque=1048576 bytes, r??plicas=2, modificado=2026-11-27 13:32:55
+
+$ hdfs dfs -du -h /smartcity/sandbox/demo
+2.7 M  5.3 M  /smartcity/sandbox/demo/bloque_defecto
+2.7 M  5.3 M  /smartcity/sandbox/demo/bloque_pequeno
+
+# Cada bloque y los DataNodes donde está cada una de sus réplicas (dfs.replication = 2):
+
+$ hdfs fsck /smartcity/sandbox/demo/bloque_defecto/trafico_2024.csv -files -blocks -locations | grep -E 'blk_|Total blocks|replication|Status'
+Connecting to namenode via http://namenode:9870/fsck?ugi=root&files=1&blocks=1&locations=1&path=%2Fsmartcity%2Fsandbox%2Fdemo%2Fbloque_defecto%2Ftrafico_2024.csv
+/smartcity/sandbox/demo/bloque_defecto/trafico_2024.csv 2787298 bytes, replicated: replication=2, 1 block(s):  OK
+0. BP-1604020310-172.18.0.2-1790327252813:blk_1073741974_1150 len=2787298 Live_repl=2  [DatanodeInfoWithStorage[172.18.0.9:9866,DS-0bd9bb4b-f4af-48ca-b028-a3725aa4fa76,DISK], DatanodeInfoWithStorage[172.18.0.7:9866,DS-4af8c4c4-f71d-480c-abfa-a02c4766d648,DISK]]
+Status: HEALTHY
+ Total blocks (validated):	1 (avg. block size 2787298 B)
+ Default replication factor:	2
+ Average block replication:	2.0
+
+$ hdfs fsck /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv -files -blocks -locations | grep -E 'blk_|Total blocks|replication|Status'
+Connecting to namenode via http://namenode:9870/fsck?ugi=root&files=1&blocks=1&locations=1&path=%2Fsmartcity%2Fsandbox%2Fdemo%2Fbloque_pequeno%2Ftrafico_2024.csv
+/smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv 2787298 bytes, replicated: replication=2, 3 block(s):  OK
+0. BP-1604020310-172.18.0.2-1790327252813:blk_1073741975_1151 len=1048576 Live_repl=2  [DatanodeInfoWithStorage[172.18.0.8:9866,DS-0fc83652-2e43-47a1-96b4-e0cc90336f14,DISK], DatanodeInfoWithStorage[172.18.0.9:9866,DS-0bd9bb4b-f4af-48ca-b028-a3725aa4fa76,DISK]]
+1. BP-1604020310-172.18.0.2-1790327252813:blk_1073741976_1152 len=1048576 Live_repl=2  [DatanodeInfoWithStorage[172.18.0.8:9866,DS-0fc83652-2e43-47a1-96b4-e0cc90336f14,DISK], DatanodeInfoWithStorage[172.18.0.9:9866,DS-0bd9bb4b-f4af-48ca-b028-a3725aa4fa76,DISK]]
+2. BP-1604020310-172.18.0.2-1790327252813:blk_1073741977_1153 len=690146 Live_repl=2  [DatanodeInfoWithStorage[172.18.0.8:9866,DS-0fc83652-2e43-47a1-96b4-e0cc90336f14,DISK], DatanodeInfoWithStorage[172.18.0.7:9866,DS-4af8c4c4-f71d-480c-abfa-a02c4766d648,DISK]]
+Status: HEALTHY
+ Total blocks (validated):	3 (avg. block size 929099 B)
+ Default replication factor:	2
+ Average block replication:	2.0
+
+# Cambiar el factor de replicación de un archivo (3 réplicas = una en cada DataNode):
+
+$ hdfs dfs -setrep -w 3 /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv
+Replication 3 set: /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv
+Waiting for /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv .... done
+
+$ hdfs fsck /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv -files -blocks -locations | grep -E 'Total blocks|Average block replication'
+Connecting to namenode via http://namenode:9870/fsck?ugi=root&files=1&blocks=1&locations=1&path=%2Fsmartcity%2Fsandbox%2Fdemo%2Fbloque_pequeno%2Ftrafico_2024.csv
+ Total blocks (validated):	3 (avg. block size 929099 B)
+ Average block replication:	3.0
+
+$ hdfs dfs -setrep -w 2 /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv
+Replication 2 set: /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv
+Waiting for /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv ...
+WARNING: the waiting time may be long for DECREASING the number of replications.
+. done
+
+$ rm -f /tmp/copia_trafico_2024.csv; hdfs dfs -get /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv /tmp/copia_trafico_2024.csv && md5sum /tmp/trafico_2024.csv /tmp/copia_trafico_2024.csv
+5f9c63c9e0016b05d5edcf43857d290a  /tmp/trafico_2024.csv
+5f9c63c9e0016b05d5edcf43857d290a  /tmp/copia_trafico_2024.csv
+
+$ hdfs dfs -rm -skipTrash /smartcity/sandbox/demo/bloque_defecto/trafico_2024.csv
+Deleted /smartcity/sandbox/demo/bloque_defecto/trafico_2024.csv
+
+$ hdfs dfs -ls -R /smartcity/sandbox/demo
+drwxr-xr-x   - root supergroup          0 2026-11-27 13:33 /smartcity/sandbox/demo/bloque_defecto
+drwxr-xr-x   - root supergroup          0 2026-11-27 13:32 /smartcity/sandbox/demo/bloque_pequeno
+-rw-r--r--   2 root supergroup    2787298 2026-11-27 13:32 /smartcity/sandbox/demo/bloque_pequeno/trafico_2024.csv

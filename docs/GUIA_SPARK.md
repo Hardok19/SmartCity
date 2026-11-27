@@ -41,7 +41,7 @@ Git no almacena los datos descargados en `data/raw/`, los JSONL generados en `da
 - Python instalado en el equipo anfitrión y Git Bash si se trabaja en Windows.
 - Acceso a Internet para obtener imágenes Docker, el conector MongoDB y las fuentes externas, si se van a descargar nuevamente.
 - Una clave personal de **OpenAQ API v3** para descargar los datos de OpenAQ. **Open-Meteo no requiere clave** para el script del proyecto.
-- Puertos **5432**, **27017**, **9870**, **8020**, **8080** y **7077** disponibles. En Windows, detener o remapear los servicios PostgreSQL/MongoDB locales que estén ocupando 5432/27017.
+- Puertos **5433** (PostgreSQL), **27017**, **9870**, **8020**, **8080** y **7077** disponibles. En Windows, detener o remapear los servicios PostgreSQL/MongoDB locales que estén ocupando 5432/27017.
 
 **Todos los comandos siguientes se ejecutan desde la raíz del repositorio** (`SmartCity/`), usando **Git Bash**, salvo indicación contraria. Los comandos con rutas internas `/opt/...` o `/smartcity/...` incluyen `MSYS_NO_PATHCONV=1` para evitar la conversión de rutas de Git Bash.
 
@@ -88,7 +88,7 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.spark-ml.ym
 docker compose -f docker/docker-compose.yml -f docker/docker-compose.spark-ml.yml ps
 ```
 
-Se esperan los contenedores `smartcity_postgres`, `smartcity_mongo`, `smartcity_namenode`, `smartcity_datanode`, `smartcity_spark_master` y `smartcity_spark_worker`.
+Se esperan los contenedores `smartcity_postgres`, `smartcity_mongo`, `smartcity_namenode`, `smartcity_datanode1..3`, `smartcity_resourcemanager`, `smartcity_nodemanager`, `smartcity_spark_master` y `smartcity_spark_worker`.
 
 Verificar que el repositorio y las dependencias sean visibles dentro de Spark:
 
@@ -356,7 +356,7 @@ Se esperan las carpetas señaladas en la tabla. No se requiere que cada consulta
 - OpenAQ/Open-Meteo y sintéticos se identifican por su `origen` y no deben confundirse ni mezclarse silenciosamente.
 - El análisis `movilidad` estudia contaminación en horarios supuestos como pico: **no demuestra tráfico vehicular real**.
 - El predictivo usa el clima **observado** de 2024 para evaluar estimaciones; no es un pronóstico futuro. En las pruebas, los modelos externos no superaron el baseline.
-- El análisis de anomalías implementa marcas de calidad y Z-score; el IQR mencionado en el TODO sigue pendiente.
+- El análisis de anomalías implementa marcas de calidad, Z-score e IQR por sensor (`metodo_deteccion` = `marca_calidad` | `z_score` | `iqr`).
 
 ---
 
@@ -444,7 +444,9 @@ MSYS_NO_PATHCONV=1 docker exec smartcity_namenode \
 
 Se espera `_SUCCESS` y al menos un `part-*.snappy.parquet`.
 
-**Limitaciones pendientes de B4.1:** SP-Q09 compara años mediante agregaciones condicionales; el TODO solicita evidenciar `PIVOT` explícitamente. SP-Q06 aún puede combinar fuentes en algunas tendencias, por lo que debe documentarse como análisis del conjunto combinado o ampliarse para separar orígenes. SP-Q10 exporta un reporte HDFS, **todavía no llena las tablas finales de PostgreSQL**.
+**Exportar resultados para el dashboard:** agregar `--exportar` guarda el resultado de cada consulta en `/smartcity/sandbox/consultas_spark/<ID>/` (máx. 5.000 filas), que es lo que muestra «Consultas por tecnología → Spark».
+
+**Limitaciones pendientes de B4.1:** SP-Q09 ya usa `PIVOT` explícito (mismas columnas de salida que antes). SP-Q06 aún puede combinar fuentes en algunas tendencias, por lo que debe documentarse como análisis del conjunto combinado o ampliarse para separar orígenes. SP-Q10 exporta un reporte HDFS, **todavía no llena las tablas finales de PostgreSQL**.
 
 ## 9. Controles de calidad y resultados de referencia
 
@@ -487,10 +489,84 @@ Esta guía **reproduce la parte de MongoDB y Spark que se implementó y probó**
 1. **Integración B3.4 con PostgreSQL:** carga de agregados y ejecución de procedimientos una vez disponibles las tablas de la pareja A.
 2. **Dashboard/Streamlit:** ejecutar las consultas y mostrar resultados, gráficos, filtros y mapa desde la interfaz grupal.
 3. **Movilidad real:** actualmente solo hay un proxy ambiental, no sensores de tráfico.
-4. **Anomalías con IQR:** falta añadirlo si se busca cumplir literalmente la técnica adicional prevista en el TODO.
-5. **Optimización Spark (B4.3):** mediciones comparativas, particionado, `explain`, `cache`, AQE y evidencia en la documentación.
+4. **Anomalías con IQR:** implementado; falta volver a ejecutar `--analisis anomalias` y anotar las cifras.
+5. **Optimización Spark (B4.3):** programa listo (§12); faltan las cifras y las capturas en `docs/resultados/spark_optimizacion.md`.
 6. **B3.2 integral:** adquisición cruda en HDFS e integración adicional con maestros PostgreSQL, cuando corresponda.
 7. **Prueba de instalación limpia:** verificar todos los comandos en otra computadora y corregir diferencias de entorno.
+
+
+## 12. Ampliaciones: lanzador, tráfico y energía, optimización y dashboard
+
+### 12.1 Lanzador y módulo común (B3.1)
+
+`scripts/spark_submit.ps1 <job> [args]` ejecuta `spark/jobs/<job>.py` dentro de `smartcity_spark_master` con el conector de Mongo, `common.py` y `rutas.py`. Si `MONGO_URI` no está definida (o apunta a `localhost`), toma `MONGO_URI_SPARK` del `.env` (host `mongo`).
+
+```powershell
+.\scripts\spark_submit.ps1 common                     # prueba de humo: spark.range(1_000_000).count() en los workers
+.\scripts\spark_submit.ps1 ejecutar_consultas --exportar
+.\scripts\spark_submit.ps1 analitica --analisis anomalias
+```
+
+Las rutas HDFS de todos los jobs nuevos y del dashboard están en `spark/jobs/rutas.py`.
+
+### 12.2 Tráfico y energía simulados (B3.3)
+
+```powershell
+python scripts/generar_trafico_sintetico.py
+python scripts/generar_energia_sintetica.py
+python scripts/subir_crudos_hdfs.py --fuentes trafico energia
+.\scripts\spark_submit.ps1 etl_trafico_energia
+```
+
+Salida: `/smartcity/sandbox/etl_trafico_energia` (Parquet `anio/mes`, formato largo del contrato). Modelo de los generadores: `docs/datos/GENERACION_SINTETICA.md` §6.
+
+### 12.3 Export de Mongo a HDFS con validación de conteos (B2.6)
+
+```bash
+export MONGO_URI="mongodb://smartcity:smartcity123@localhost:27017/smartcity_db?authSource=admin"
+python scripts/subir_crudos_hdfs.py --fuentes mongo --colecciones lectura evento alerta incidente
+```
+
+Para cada colección imprime `SMARTCITY_MONGO_HDFS_CONTEO_OK=<col> mongo=N hdfs=N` y falla si los conteos no coinciden. Alternativa con `mongoexport`: `bash mongo/04_export.sh`.
+
+### 12.4 Optimización (B4.3) e índices de MongoDB (B2.5)
+
+```powershell
+.\scripts\spark_submit.ps1 optimizar_spark --pruebas todas --repeticiones 3
+python scripts/mongo_experimento_indices.py --repeticiones 3
+```
+
+Ver `docs/resultados/spark_optimizacion.md` (cómo exportar el CSV de mediciones) y `docs/resultados/mongo_indices.md` (lo genera el script).
+
+### 12.5 Carga de resultados en PostgreSQL (B3.4)
+
+Requiere el esquema y el catálogo de la pareja A (`python scripts/pg_init.py` y `python scripts/pg_cargar_maestros.py`) y el ETL de la §6.2:
+
+```powershell
+.\scripts\spark_submit.ps1 carga_pg                       # ON CONFLICT DO NOTHING (re-ejecutable)
+.\scripts\spark_submit.ps1 carga_pg --actualizar          # ON CONFLICT DO UPDATE
+.\scripts\spark_submit.ps1 carga_pg --tablas spark_anomalia
+```
+
+Carga `medicion_horaria` (promedio por sensor, variable y hora), `agg_ambiente_hora_zona`, `spark_kpi_zona` (promedio diario por zona y métrica, formato largo) y `spark_anomalia` (desde `analitica/anomalias_detalle`). Usa una tabla staging por JDBC y descarta las filas cuyo sensor, variable o zona no existen en el catálogo. Imprime `SMARTCITY_B34_<TABLA> spark=… insertadas_o_actualizadas=… total_pg=…` y al final refresca las vistas materializadas.
+
+### 12.6 Streaming (reto adicional)
+
+```powershell
+.\scripts\spark_submit.ps1 streaming_alertas --duracion 300          # en una terminal
+python scripts/streaming_productor.py --lotes 40 --intervalo 5 --episodio "Zona Centro"   # en otra
+```
+
+También se puede iniciar o detener desde el dashboard, en la página «Streaming en vivo». Detalle en `docs/tecnico/08_procesamiento.md` §8.6.
+
+### 12.7 Dashboard
+
+```powershell
+pip install -r requirements.txt
+streamlit run dashboard.py
+```
+
+La interfaz con la pareja A se describe en `docs/tecnico/INTERFAZ_DASHBOARD.md`. Pruebas: `pytest -q tests/test_conectores_mongo_spark.py` (las de integración se omiten si MongoDB o HDFS no responden).
 
 ---
 

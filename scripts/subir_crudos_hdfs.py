@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Copia fuentes originales a /smartcity/raw en HDFS (no toca curated).
 
-Ejemplo: python scripts/subir_crudos_hdfs.py --fuentes openaq openmeteo trafico
+Ejemplo: python scripts/subir_crudos_hdfs.py --fuentes openaq openmeteo trafico energia
          python scripts/subir_crudos_hdfs.py --fuentes mongo --colecciones lectura
 
 Para Mongo: MONGO_URI debe apuntar a localhost (Python del anfitrion).
@@ -93,8 +93,8 @@ def exportar_mongo(coleccion, destino_local):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--fuentes", nargs="+", choices=["openaq", "openmeteo", "trafico", "mongo"],
-                    default=["openaq", "openmeteo", "trafico"])
+    ap.add_argument("--fuentes", nargs="+", choices=["openaq", "openmeteo", "trafico", "energia", "mongo"],
+                    default=["openaq", "openmeteo", "trafico", "energia"])
     ap.add_argument("--colecciones", nargs="+", choices=["lectura", "evento", "alerta", "incidente"],
                     default=["lectura"])
     ap.add_argument("--fecha", default=datetime.now(timezone.utc).date().isoformat(),
@@ -106,10 +106,11 @@ def main():
     except ValueError:
         ap.error("--fecha debe ser AAAA-MM-DD")
     fuentes = list(dict.fromkeys(args.fuentes))
-    for origen in ["openaq", "openmeteo", "trafico"]:
+    for origen in ["openaq", "openmeteo", "trafico", "energia"]:
         if origen not in fuentes:
             continue
-        patron = {"openaq": "*/*.csv", "openmeteo": "*.json", "trafico": "trafico_*.csv"}[origen]
+        patron = {"openaq": "*/*.csv", "openmeteo": "*.json", "trafico": "trafico_*.csv",
+                  "energia": "energia_*.csv"}[origen]
         base = RAIZ / "data" / "raw" / origen
         archivos = sorted(base.glob(patron))
         if not archivos:
@@ -121,9 +122,15 @@ def main():
         for coleccion in list(dict.fromkeys(args.colecciones)):
             with tempfile.TemporaryDirectory(prefix="smartcity_mongo_export_") as tmp:
                 local = Path(tmp) / f"{coleccion}.jsonl"
-                exportar_mongo(coleccion, local)
-                copiar(local, f"{HDFS_BASE}/mongo_exports/{coleccion}/fecha={args.fecha}/{coleccion}.jsonl",
-                       args.sobrescribir)
+                escritos = exportar_mongo(coleccion, local)
+                destino = f"{HDFS_BASE}/mongo_exports/{coleccion}/fecha={args.fecha}/{coleccion}.jsonl"
+                copiar(local, destino, args.sobrescribir)
+                # B2.6: conteo Mongo = líneas JSONL en HDFS
+                lineas = int(ejecutar("docker", "exec", CONTENEDOR, "bash", "-c",
+                                      f"hadoop fs -cat {destino} | wc -l").stdout.strip())
+                if lineas != escritos:
+                    raise RuntimeError(f"{coleccion}: Mongo={escritos} documentos, HDFS={lineas} lineas")
+                print(f"SMARTCITY_MONGO_HDFS_CONTEO_OK={coleccion} mongo={escritos} hdfs={lineas}", flush=True)
     print("SMARTCITY_RAW_RESUMEN=OK", flush=True)
 
 

@@ -1,0 +1,6 @@
+fecha_utc,job,entrada,salida,segundos,filas_salida
+2026-11-27T13:30:34Z,mr01,/smartcity/sandbox/mr_muestra/lectura.jsonl,/smartcity/sandbox/mapreduce/mr01,19.466,5
+2026-11-27T13:30:57Z,mr03,/smartcity/sandbox/mr_muestra/lectura.jsonl,/smartcity/sandbox/mapreduce/mr03,17.583,7
+2026-11-27T13:31:21Z,mr04,/smartcity/sandbox/mr_muestra/evento.jsonl,/smartcity/sandbox/mapreduce/mr04,17.495,15
+2026-11-27T13:31:44Z,mr05,/smartcity/sandbox/mr_muestra/lectura.jsonl,/smartcity/sandbox/mapreduce/mr05,17.516,10
+2026-11-27T13:32:13Z,mr02,/smartcity/sandbox/mapreduce/mr01,/smartcity/sandbox/mapreduce/mr02,17.461,5

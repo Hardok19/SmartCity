@@ -1,6 +1,6 @@
 // Parámetros por defecto: variable=pm25, zona=(todas), desde=2024-02-15, hasta=2024-06-15
 // Uso: mongosh smartcity mongo/queries/MG-Q09.js
-// MG-Q09 — Agregación avanzada: resumen, serie con media móvil, histograma y top sensores
+// MG-Q09 — Agregación avanzada: resumen, serie con media móvil, histograma y top sensores con sus alertas ($lookup)
 db.lectura.aggregate([
   {
     $match: {
@@ -56,7 +56,16 @@ db.lectura.aggregate([
         },
         { $sort: { valor: -1 } },
         { $limit: 5 },
-        { $project: { _id: 0, sensor_id: "$_id", zona: 1, valor: { $round: ["$valor", 2] } } }
+        { $lookup: { from: "alerta", localField: "_id", foreignField: "sensor_id", as: "alertas" } },
+        {
+          $project: {
+            _id: 0,
+            sensor_id: "$_id",
+            zona: 1,
+            valor: { $round: ["$valor", 2] },
+            alertas: { $size: "$alertas" }
+          }
+        }
       ],
       resumen: [
         {

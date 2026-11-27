@@ -5,7 +5,8 @@ Comando en contenedor: spark-submit ... ejecutar_consultas.py --consultas SP-Q02
 Para SP-Q02 y SP-Q07 requiere MONGO_URI (no poner contraseñas en el archivo).
 
 Este ejecutor lee datos. Solo escribe en HDFS si se pasa --exportar-reporte
-(y únicamente en una ruta de sandbox predefinida).
+(SP-Q10 en una ruta de sandbox predefinida) o --exportar (el resultado de cada
+consulta en RUTAS["consultas"]/<ID>, que es lo que lee el dashboard).
 """
 import argparse
 import os
@@ -13,9 +14,12 @@ from pathlib import Path
 
 from pyspark.sql import SparkSession, functions as F, types as T
 
+from common import RUTAS
+
 DIRECTORIO_SQL = Path("/opt/smartcity/spark/sql")
-HDFS_ENTRADA = "hdfs://namenode:8020/smartcity/sandbox/etl_ambiente_completa"
-HDFS_REPORTE = "hdfs://namenode:8020/smartcity/sandbox/reporte_spark_q10"
+HDFS_ENTRADA = RUTAS["ambiente"]
+HDFS_REPORTE = RUTAS["reporte_q10"]
+HDFS_CONSULTAS = RUTAS["consultas"]
 
 
 
@@ -113,6 +117,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--consultas", nargs="+", help="IDs como SP-Q02 SP-Q05; por defecto, todos los SQL disponibles")
     p.add_argument("--exportar-reporte", action="store_true", help="Guarda el resultado de SP-Q10 en HDFS sandbox")
+    p.add_argument("--exportar", action="store_true",
+                   help="Guarda el resultado de cada consulta en RUTAS['consultas']/<ID> (lo lee el dashboard)")
     args = p.parse_args()
 
     disponibles = {archivo.stem: archivo for archivo in DIRECTORIO_SQL.glob("SP-Q*.sql")}
@@ -159,6 +165,10 @@ def main():
                 if ident == "SP-Q10" and args.exportar_reporte:
                     resultado.write.mode("overwrite").parquet(HDFS_REPORTE)
                     print(f"SMARTCITY_SPARK_REPORTE={HDFS_REPORTE}", flush=True)
+                if args.exportar:
+                    destino = f"{HDFS_CONSULTAS}/{ident}"
+                    resultado.limit(5000).coalesce(1).write.mode("overwrite").parquet(destino)
+                    print(f"SMARTCITY_SPARK_EXPORTADA={ident} {destino}", flush=True)
                 print(f"SMARTCITY_SPARK_OK={ident}", flush=True)
             except Exception as e:
                 fallidas.append(ident)

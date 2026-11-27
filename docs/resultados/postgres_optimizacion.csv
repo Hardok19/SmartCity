@@ -1,0 +1,10 @@
+experimento,descripcion,variante,escala_filas,ms_mediana
+A2.5-1,Últimas 50 lecturas de un sensor,sin_indice,175440,12.519
+A2.5-1,Últimas 50 lecturas de un sensor,con_indice_btree,175440,0.33
+A2.5-2,Promedio por variable de un mes,sin_poda_expresion,175440,20.11
+A2.5-2,Promedio por variable de un mes,con_poda_particiones,175440,3.256
+A2.5-3,Conteo y promedio de 3 meses,btree_timestamp,175440,5.113
+A2.5-3,Conteo y promedio de 3 meses,brin_timestamp,175440,11.082
+A2.5-3,Conteo y promedio de 3 meses,plan_elegido_por_postgres,175440,6.732
+A2.5-4,Mediciones por zona y día,consulta_en_vivo,175440,85.86
+A2.5-4,Mediciones por zona y día,vista_materializada,175440,0.52

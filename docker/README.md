@@ -22,7 +22,7 @@ La primera vez tarda varios minutos porque descarga las imágenes. Las siguiente
 docker compose ps
 ```
 
-Deben verse 6 contenedores en estado `Up`/`healthy`: `smartcity_postgres`, `smartcity_mongo`, `smartcity_namenode`, `smartcity_datanode`, `smartcity_spark_master`, `smartcity_spark_worker`.
+Deben verse 10 contenedores en estado `Up`/`healthy`: `smartcity_postgres`, `smartcity_mongo`, `smartcity_namenode`, `smartcity_datanode1..3`, `smartcity_resourcemanager`, `smartcity_nodemanager`, `smartcity_spark_master`, `smartcity_spark_worker`.
 
 Interfaces web para confirmar visualmente:
 - HDFS (namenode): http://localhost:9870
@@ -32,7 +32,7 @@ Interfaces web para confirmar visualmente:
 
 | Tecnología | Host/Puerto | Usuario | Contraseña | Base/DB |
 |---|---|---|---|---|
-| PostgreSQL | `localhost:5432` | `smartcity` | `smartcity123` | `smartcity_db` |
+| PostgreSQL | `localhost:5433` (5432 dentro de Docker) | `smartcity` | `smartcity123` | `smartcity_db` |
 | MongoDB | `localhost:27017` | `smartcity` | `smartcity123` | `smartcity_db` |
 | HDFS (RPC) | `localhost:8020` (desde tu host) / `namenode:8020` (entre contenedores) | — | — | — |
 | Spark master | `spark://localhost:7077` | — | — | — |
@@ -43,7 +43,7 @@ Ejemplo de conexión desde Python (fuera de Docker, en tu máquina):
 # PostgreSQL
 import psycopg2
 conn = psycopg2.connect(
-    host="localhost", port=5432,
+    host="localhost", port=5433,
     dbname="smartcity_db", user="smartcity", password="smartcity123"
 )
 

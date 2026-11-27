@@ -101,7 +101,7 @@ Los sensores con más detecciones fueron S-018 (2.304), S-017 (2.089), S-019 (2.
 
 **Salidas:** `analitica/anomalias_detalle`, `analitica/anomalias_resumen`, `analitica/anomalias_sensores`.
 
-**Pendiente según TODO:** complementar el análisis con método **IQR por sensor** y contrastar los resultados contra Z-score.
+**IQR por sensor (agregado después de esta ejecución):** `analitica.py` incorpora un tercer método, `metodo_deteccion = "iqr"` (valor < Q1 − 1,5·IQR o > Q3 + 1,5·IQR por sensor e indicador, con al menos 30 valores e IQR > 0), y reporta cuántas lecturas detectan a la vez Z-score e IQR (`SMARTCITY_B42_ANOMALIAS_ZSCORE_E_IQR`). **Cifras pendientes** de volver a ejecutar `--analisis anomalias`.
 
 ## 9. Análisis comparativo por zona y año
 
@@ -128,9 +128,9 @@ Las consultas **SP-Q01 a SP-Q10** se ejecutaron con éxito individualmente. SP-Q
 1. **Trazabilidad de fuentes:** diferenciar siempre `openaq`, `open-meteo` y `sintetico`; una etiqueta de procedencia no sustituye una auditoría de calidad independiente de cada valor. El generador puede introducir valores extraordinarios en las series producidas para SmartCity.
 2. **Cobertura histórica:** PM2.5 proveniente de OpenAQ solo está disponible en Centro y Este para el período analizado. Las zonas restantes utilizan PM2.5 sintético en estas pruebas.
 3. **Movilidad:** el análisis de horarios pico es un proxy ambiental; falta un conjunto de datos de tráfico si se desea responder literalmente a la pregunta de circulación vehicular.
-4. **Anomalías:** implementar y contrastar **IQR por sensor** además de Z-score y marcas.
+4. **Anomalías:** IQR por sensor ya implementado; falta volver a ejecutarlo y anotar las cifras y la coincidencia con Z-score en la §8.
 5. **Integración PostgreSQL:** comprobar las tablas reales de la pareja A y construir `spark/jobs/carga_pg.py`, con inserción idempotente y conteos verificables. No inventar esquemas antes de inspeccionarlos.
-6. **Optimización B4.3:** comparar CSV/Parquet, mostrar `PartitionFilters` en `explain()`, broadcast JOIN y uso de caché/AQE; documentar tiempos y configuración en `docs/resultados/spark_optimizacion.md`.
+6. **Optimización B4.3:** programa `optimizar_spark.py` y metodología en `docs/resultados/spark_optimizacion.md`; faltan las cifras de una ejecución y las capturas de la Spark UI.
 7. **Dashboard B5/D:** conectar consultas y resultados almacenados a la interfaz Streamlit; ejecutar las consultas por tecnología desde ella.
 8. **Reproducibilidad:** fijar dependencias NumPy/SciPy en la imagen Spark de Docker; las instalaciones manuales dentro del contenedor se pierden si se recrea.
 9. **Rutas finales:** el prototipo utiliza `sandbox`; antes de la entrega acordar con el equipo las rutas oficiales bajo `/smartcity/curated/` y `/smartcity/analytics/`.

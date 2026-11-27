@@ -1,47 +1,39 @@
--- SP-Q09: Comparacion historica entre 2023 y 2024
+-- SP-Q09: Comparacion historica entre 2023 y 2024 (PIVOT por anio)
 -- PM2.5 por zona y origen de los datos.
 -- Incluye conteos para comprobar la cobertura anual.
 
-WITH comparacion AS (
-    SELECT
-        zona,
-        origen,
-
-        COUNT(CASE WHEN anio = 2023 THEN 1 END)
-            AS mediciones_2023,
-
-        ROUND(AVG(CASE WHEN anio = 2023 THEN valor END), 2)
-            AS pm25_2023,
-
-        COUNT(CASE WHEN anio = 2024 THEN 1 END)
-            AS mediciones_2024,
-
-        ROUND(AVG(CASE WHEN anio = 2024 THEN valor END), 2)
-            AS pm25_2024
-
+WITH base AS (
+    SELECT zona, origen, anio, valor
     FROM ambiente
-
     WHERE tipo_metrica = 'pm25'
       AND anio IN (2023, 2024)
       AND valor IS NOT NULL
+),
 
-    GROUP BY zona, origen
+comparacion AS (
+    SELECT *
+    FROM base
+    PIVOT (
+        COUNT(valor) AS mediciones,
+        AVG(valor)   AS pm25
+        FOR anio IN (2023 AS a2023, 2024 AS a2024)
+    )
 )
 
 SELECT
     zona,
     origen,
-    mediciones_2023,
-    pm25_2023,
-    mediciones_2024,
-    pm25_2024,
+    COALESCE(a2023_mediciones, 0) AS mediciones_2023,
+    ROUND(a2023_pm25, 2)          AS pm25_2023,
+    COALESCE(a2024_mediciones, 0) AS mediciones_2024,
+    ROUND(a2024_pm25, 2)          AS pm25_2024,
 
-    ROUND(pm25_2024 - pm25_2023, 2)
+    ROUND(a2024_pm25 - a2023_pm25, 2)
         AS diferencia_absoluta,
 
     ROUND(
-        100.0 * (pm25_2024 - pm25_2023)
-        / NULLIF(pm25_2023, 0),
+        100.0 * (a2024_pm25 - a2023_pm25)
+        / NULLIF(a2023_pm25, 0),
         2
     ) AS variacion_porcentual
 
