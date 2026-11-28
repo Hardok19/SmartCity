@@ -25,3 +25,11 @@ data/interim/
 
 # Muestras pequeñas versionadas para pruebas (tests/test_mapreduce.py)
 !data/samples/*.jsonl
+
+# Entrega: el zip se genera con scripts/empaquetar_entrega.py; el HTML intermedio usa rutas locales
+dist/
+docs/entrega/*.html
+
+#ia cosas
+.claude/settings.local.json
+.claude

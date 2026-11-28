@@ -23,7 +23,7 @@ El diagrama completo está en [docs/diagramas/modelo_documental.md](../diagramas
 
 **Validación.** Cada colección tiene un `$jsonSchema` **flexible**: exige solo los campos que las consultas necesitan para funcionar (identificador, tipo, fecha, zona) y deja libre el resto. Usa `validationLevel: "moderate"` (los documentos que ya existen y no cumplen no bloquean actualizaciones) y `validationAction: "error"`. Así, insertar una lectura sin `sensor_id` falla, pero una lectura con un campo nuevo se acepta.
 
-**Nombres de campos.** `lectura.sensor_id` es el mismo identificador que `id_sensor` en PostgreSQL y HDFS (`S-001`…). `lectura.tipo` es la categoría (`calidad_aire`, `clima`…). El puente hacia las columnas estándar del contrato (`zona, timestamp, id_sensor, tipo_metrica, valor, fuente`) está en [scripts/mongo_contrato.py](../../scripts/mongo_contrato.py): para `calidad_aire`, `valor` = PM2.5.
+**Nombres de campos.** `lectura.sensor_id` es el mismo identificador que `id_sensor` en PostgreSQL y HDFS (`S-001`…). `lectura.tipo` es la categoría (`calidad_aire`, `clima`…). El puente hacia las columnas estándar del contrato (`zona, timestamp, id_sensor, tipo_metrica, valor, fuente`) está en [scripts/mongo_contrato.py](../../scripts/mongo_contrato.py): cada fila es una métrica (`tipo_metrica` = `pm25`, `temperatura`…, D-01) con `valor` = `mediciones.<métrica>` de los documentos del tipo de sensor que la mide.
 
 ## 6.3 Embebido frente a referencia
 

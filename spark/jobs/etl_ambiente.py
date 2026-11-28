@@ -8,14 +8,17 @@ La lectura independiente de los archivos raw OpenAQ/Open-Meteo y el join
 con los maestros de PostgreSQL se incorporarán en una siguiente etapa.
 
 No modifica documentos en MongoDB. Solo sobrescribe la ruta HDFS indicada
-por --salida. Empezar en /smartcity/sandbox, nunca en rutas productivas.
+por --salida. La ruta final es RUTAS["ambiente"] (/smartcity/curated/ambiente), que leen la analítica, las
+consultas y carga_pg; el valor por defecto es una ruta de prueba en /smartcity/sandbox.
 """
 
 import argparse
 import json
 import os
 
-from pyspark.sql import SparkSession, functions as F, types as T
+from pyspark.sql import functions as F, types as T
+
+from common import get_spark
 
 VARIABLES = (
     "pm25", "pm10", "co", "no2", "o3", "co2",
@@ -101,12 +104,7 @@ def main():
     if not uri:
         p.error("Falta variable MONGO_URI dentro del contenedor Spark")
 
-    spark = (SparkSession.builder
-             .appName("SmartCity-B3-ETL-Ambiente")
-             .config("spark.sql.session.timeZone", "UTC")
-             .config("spark.sql.shuffle.partitions", "8")
-             .getOrCreate())
-    spark.sparkContext.setLogLevel("WARN")
+    spark = get_spark("SmartCity-B3-ETL-Ambiente")
     try:
         lector = (spark.read.format("mongodb")
                   .option("connection.uri", uri)

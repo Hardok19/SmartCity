@@ -5,16 +5,16 @@ Comando en contenedor: spark-submit ... ejecutar_consultas.py --consultas SP-Q02
 Para SP-Q02 y SP-Q07 requiere MONGO_URI (no poner contraseñas en el archivo).
 
 Este ejecutor lee datos. Solo escribe en HDFS si se pasa --exportar-reporte
-(SP-Q10 en una ruta de sandbox predefinida) o --exportar (el resultado de cada
+(SP-Q10 en RUTAS["reporte_q10"]) o --exportar (el resultado de cada
 consulta en RUTAS["consultas"]/<ID>, que es lo que lee el dashboard).
 """
 import argparse
 import os
 from pathlib import Path
 
-from pyspark.sql import SparkSession, functions as F, types as T
+from pyspark.sql import functions as F, types as T
 
-from common import RUTAS
+from common import CATALOGO_SENSORES, RUTAS, get_spark
 
 DIRECTORIO_SQL = Path("/opt/smartcity/spark/sql")
 HDFS_ENTRADA = RUTAS["ambiente"]
@@ -116,7 +116,7 @@ def cargar_lecturas_crudas(spark):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--consultas", nargs="+", help="IDs como SP-Q02 SP-Q05; por defecto, todos los SQL disponibles")
-    p.add_argument("--exportar-reporte", action="store_true", help="Guarda el resultado de SP-Q10 en HDFS sandbox")
+    p.add_argument("--exportar-reporte", action="store_true", help="Guarda el resultado de SP-Q10 en RUTAS['reporte_q10']")
     p.add_argument("--exportar", action="store_true",
                    help="Guarda el resultado de cada consulta en RUTAS['consultas']/<ID> (lo lee el dashboard)")
     args = p.parse_args()
@@ -129,12 +129,7 @@ def main():
     if args.exportar_reporte and "SP-Q10" not in ids:
         p.error("--exportar-reporte requiere incluir SP-Q10")
 
-    spark = (SparkSession.builder
-        .appName("SmartCity-B4-Spark-SQL")
-        .config("spark.sql.session.timeZone", "UTC")
-        .config("spark.sql.shuffle.partitions", "8")
-        .getOrCreate())
-    spark.sparkContext.setLogLevel("WARN")
+    spark = get_spark("SmartCity-B4-Spark-SQL")
     fallidas = []
     try:
         ambiente = spark.read.parquet(HDFS_ENTRADA)
@@ -143,7 +138,7 @@ def main():
             catalogo = (
                 spark.read
                 .option("header", True)
-                .csv("/opt/smartcity/data/maestros/sensores.csv")
+                .csv(CATALOGO_SENSORES)
                 .select("id_sensor", "categoria", "zona")
                 .dropDuplicates(["id_sensor"])
             )

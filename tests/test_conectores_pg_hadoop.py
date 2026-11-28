@@ -110,3 +110,16 @@ def test_hdfs_operaciones_sandbox():
 def test_resumen_hdfs():
     r = a.resumen_hdfs()
     assert r["datanodes_vivos"] >= 1 and r["fuente"] == FUENTE_HDFS
+
+
+@requiere_pg
+def test_lecturas_pg_metricas_d01():
+    """D-01: sin tipo devuelve todas las variables con su código; «calidad_aire» es alias de PM2.5."""
+    f = Filtros(fecha_inicio=date(2024, 3, 1), fecha_fin=date(2024, 3, 7))
+    df = a.lecturas_pg(f, limite=2000)
+    assert set(df["tipo_metrica"]) <= set(a.VARIABLES_PG)
+    alias = a.lecturas_pg(Filtros(fecha_inicio=date(2024, 3, 1), fecha_fin=date(2024, 3, 7),
+                                  tipos_metrica=("calidad_aire",)), limite=50)
+    assert set(alias["tipo_metrica"]) <= {"calidad_aire"}
+    solo_clima = a.sensores(Filtros(tipos_metrica=("temperatura",)))
+    assert set(solo_clima["tipo_sensor"]) == {"clima"}

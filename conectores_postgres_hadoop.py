@@ -29,16 +29,29 @@ import pandas as pd
 
 from comun import CONFIG, Consulta, Filtros
 from contrato import (
-    COLUMNAS_ESTANDAR, FUENTE_HDFS, FUENTE_POSTGRES, normalizar_timestamp, ordenar_columnas_estandar,
-    validar_estado, validar_tipo_metrica, validar_zonas,
+    COLUMNAS_ESTANDAR, FUENTE_HDFS, FUENTE_POSTGRES, METRICA_DE_CATEGORIA, TIPOS_METRICA, normalizar_timestamp,
+    ordenar_columnas_estandar, tipos_sensor_de, validar_estado, validar_tipo_metrica, validar_zonas,
 )
 
 RAIZ = Path(__file__).resolve().parent
 DIR_CONSULTAS = RAIZ / "sql" / "queries"
 DIR_MAPREDUCE = RAIZ / "hadoop" / "mapreduce"
 SANDBOX = "/smartcity/sandbox"
-# variable de medicion_horaria -> tipo del contrato (para COLUMNAS_ESTANDAR; calidad_aire -> valor = PM2.5)
-VARIABLE_A_TIPO = {"pm25": "calidad_aire", "trafico": "trafico", "energia": "energia"}
+# Códigos de variables_medicion (= medicion_horaria.variable). Desde D-01 son también tipos del contrato, así que
+# tipo_metrica = variable. "calidad_aire" se acepta como alias de pm25 (contrato.METRICA_DE_CATEGORIA).
+VARIABLES_PG = ["pm25", "pm10", "co", "no2", "o3", "co2", "temperatura", "humedad", "precipitacion", "viento",
+                "trafico", "energia"]
+assert set(VARIABLES_PG) <= set(TIPOS_METRICA)
+
+
+def _variables_pedidas(tipos) -> dict[str, str]:
+    """{variable de medicion_horaria: etiqueta tipo_metrica de salida} para los tipos del filtro."""
+    pedidas = {}
+    for t in tipos:
+        variable = METRICA_DE_CATEGORIA.get(t, t)
+        if variable in VARIABLES_PG:
+            pedidas[variable] = t
+    return pedidas
 
 # =====================================================================================
 # 1. Conexiones y estado
@@ -398,6 +411,9 @@ def sensores(filtros: Any = None) -> pd.DataFrame:
     if f.id_sensor:
         condiciones.append("id_sensor = %(id_sensor)s")
         params["id_sensor"] = f.id_sensor
+    if f.tipos_metrica:                                   # métrica -> tipo de sensor que la mide
+        condiciones.append("tipo_sensor = ANY(%(tipos)s)")
+        params["tipos"] = tipos_sensor_de(f.tipos_metrica)
     sql = ("SELECT v.id_sensor, v.nombre, v.tipo_sensor, v.categoria, v.estado, v.zona, v.lat, v.lon, v.organismo, "
            "a.num_mediciones, a.ultima_lectura FROM v_sensor_detalle v LEFT JOIN mv_actividad_sensor a USING (id_sensor)"
            + (" WHERE " + " AND ".join(condiciones) if condiciones else "") + " ORDER BY v.zona, v.id_sensor")
@@ -412,10 +428,16 @@ def sensores(filtros: Any = None) -> pd.DataFrame:
 
 
 def kpis_iot(filtros: Any = None) -> dict:
-    """Nº de sensores, activos e inactivos (y cuántos tienen lecturas)."""
+    """Nº de sensores, activos e inactivos (y cuántos tienen lecturas), por zona y tipo de sensor."""
     f = _f(filtros)
-    params = {"zonas": list(f.zonas)} if f.zonas else {}
-    filtro_zona = "WHERE u.nombre_zona = ANY(%(zonas)s)" if f.zonas else ""
+    condiciones, params = [], {}
+    if f.zonas:
+        condiciones.append("u.nombre_zona = ANY(%(zonas)s)")
+        params["zonas"] = list(f.zonas)
+    if f.tipos_metrica:
+        condiciones.append("s.tipo_sensor = ANY(%(tipos)s)")
+        params["tipos"] = tipos_sensor_de(f.tipos_metrica)
+    filtro_zona = ("WHERE " + " AND ".join(condiciones)) if condiciones else ""
     r = ejecutar_sql(f"""
         SELECT COUNT(*) AS sensores,
                COUNT(*) FILTER (WHERE s.estado = 'activo')   AS activos,
@@ -429,16 +451,18 @@ def kpis_iot(filtros: Any = None) -> dict:
 
 
 def lecturas_pg(filtros: Any = None, *, limite: int = 20_000) -> pd.DataFrame:
-    """Lecturas de medicion_horaria en COLUMNAS_ESTANDAR (calidad_aire -> PM2.5; trafico; energia)."""
+    """Lecturas de medicion_horaria en COLUMNAS_ESTANDAR, una fila por variable (pm25, temperatura, trafico…).
+
+    Sin tipo en el filtro se devuelven todas las variables.
+    """
     f = _f(filtros)
     if not isinstance(limite, int) or not 1 <= limite <= 200_000:
         raise ValueError("limite debe ser un entero entre 1 y 200000")
-    tipos = [t for t in (f.tipos_metrica or ("calidad_aire",)) if t in VARIABLE_A_TIPO.values()]
-    variables = [v for v, t in VARIABLE_A_TIPO.items() if t in tipos]
-    if not variables:
+    pedidas = _variables_pedidas(f.tipos_metrica) if f.tipos_metrica else {v: v for v in VARIABLES_PG}
+    if not pedidas:
         return pd.DataFrame(columns=COLUMNAS_ESTANDAR)
     cond = ["m.variable = ANY(%(variables)s)"]
-    params: dict = {"variables": variables, "limite": limite}
+    params: dict = {"variables": list(pedidas), "limite": limite}
     if f.zonas:
         cond.append("u.nombre_zona = ANY(%(zonas)s)")
         params["zonas"] = list(f.zonas)
@@ -462,7 +486,7 @@ def lecturas_pg(filtros: Any = None, *, limite: int = 20_000) -> pd.DataFrame:
         params["vmax"] = f.valor_max
     df = ejecutar_sql(f"""
         SELECT u.nombre_zona AS zona, m.timestamp, m.id_sensor,
-               CASE m.variable WHEN 'pm25' THEN 'calidad_aire' ELSE m.variable END AS tipo_metrica,
+               m.variable AS tipo_metrica,
                m.valor, 'PostgreSQL' AS fuente
         FROM medicion_horaria m
         JOIN sensores s    USING (id_sensor)
@@ -473,27 +497,32 @@ def lecturas_pg(filtros: Any = None, *, limite: int = 20_000) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=COLUMNAS_ESTANDAR)
     df["timestamp"] = normalizar_timestamp(df["timestamp"])
+    df["tipo_metrica"] = df["tipo_metrica"].map(pedidas)          # alias: calidad_aire si así se pidió
     validar_zonas(df)
     validar_tipo_metrica(df)
     return ordenar_columnas_estandar(df)
 
 
 def lecturas_hdfs(filtros: Any = None) -> pd.DataFrame:
-    """Promedios diarios de PM2.5 calculados por MapReduce (mr05) en COLUMNAS_ESTANDAR, fuente="HDFS"."""
+    """Promedios diarios por sensor y variable calculados por MapReduce (mr05) en COLUMNAS_ESTANDAR, fuente="HDFS".
+
+    Sin tipo en el filtro se devuelven todas las variables del contrato que calculó mr05.
+    """
     f = _f(filtros)
     try:
         df = mr_resultado("mr05")
     except FileNotFoundError:          # aún no se ejecutó mr05: sin lecturas de HDFS
         return pd.DataFrame(columns=COLUMNAS_ESTANDAR)
-    df = df[df["variable"] == "pm25"]
+    pedidas = _variables_pedidas(f.tipos_metrica) if f.tipos_metrica else {v: v for v in VARIABLES_PG}
+    df = df[df["variable"].isin(list(pedidas))]
     if df.empty:
         return pd.DataFrame(columns=COLUMNAS_ESTANDAR)
     zonas = ejecutar_sql("SELECT id_sensor, zona FROM v_sensor_detalle")
     df = df.merge(zonas, on="id_sensor", how="inner")
     salida = pd.DataFrame({"zona": df["zona"], "timestamp": normalizar_timestamp(df["fecha"]),
-                           "id_sensor": df["id_sensor"], "tipo_metrica": "calidad_aire",
+                           "id_sensor": df["id_sensor"], "tipo_metrica": df["variable"].map(pedidas),
                            "valor": df["promedio"].astype(float), "fuente": FUENTE_HDFS})
-    salida = f.aplicar(salida)
+    salida = f.aplicar(salida, col_tipo=None)                     # el tipo ya se filtró arriba (con alias)
     validar_zonas(salida)
     validar_tipo_metrica(salida)
     return ordenar_columnas_estandar(salida)

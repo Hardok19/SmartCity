@@ -9,6 +9,8 @@ Destinos (contrato de la pareja A):
 
 Método (idempotente): Spark agrega -> tabla staging por JDBC (overwrite) -> INSERT … SELECT … ON CONFLICT
 DO NOTHING (o DO UPDATE con --actualizar) -> DROP staging -> refresco de vistas materializadas.
+spark_anomalia es la foto del último análisis de anomalías: se reemplaza completa (DELETE + INSERT en la misma
+transacción), para que no queden lecturas que un análisis posterior ya no marca.
 Solo se cargan filas cuyas FK existen (sensor, variable, zona). Antes de cargar medicion_horaria se borran
 las lecturas de prueba (origen = 'prueba_pg') de scripts/pg_generar_mediciones.py. Tráfico y energía (B3.3,
 sensores T-00x/E-00x) también se cargan en medicion_horaria con variable = trafico | energia.
@@ -46,6 +48,7 @@ DESTINOS = {
     "spark_anomalia": {
         "tabla": "spark_anomalia", "pk": ("id_sensor", "timestamp", "variable"),
         "columnas": ("id_sensor", "timestamp", "variable", "valor", "tipo_anomalia"),
+        "reemplazar": True,
     },
 }
 
@@ -104,13 +107,16 @@ def cargar(spark, df, clave, actualizar):
         conflicto = f"DO UPDATE SET {', '.join(f'{c} = EXCLUDED.{c}' for c in resto)}"
     else:
         conflicto = "DO NOTHING"
-    insertadas, _, total = ejecutar_sql(spark, [
+    reemplazar = destino.get("reemplazar", False)
+    resultados = ejecutar_sql(spark, ([f"DELETE FROM {tabla}"] if reemplazar else []) + [
         f"INSERT INTO {tabla} ({lista}) SELECT {seleccion} FROM {staging} ON CONFLICT ({', '.join(pk)}) {conflicto}",
         f"DROP TABLE IF EXISTS {staging}",
         f"SELECT COUNT(*) FROM {tabla}",
     ])
-    print(f"SMARTCITY_B34_{tabla.upper()} spark={n_spark} insertadas_o_actualizadas={insertadas} total_pg={total}",
-          flush=True)
+    borradas = resultados.pop(0) if reemplazar else None
+    insertadas, _, total = resultados
+    print(f"SMARTCITY_B34_{tabla.upper()} spark={n_spark} insertadas_o_actualizadas={insertadas} total_pg={total}"
+          + (f" reemplazadas={borradas}" if reemplazar else ""), flush=True)
     return n_spark, insertadas, total
 
 

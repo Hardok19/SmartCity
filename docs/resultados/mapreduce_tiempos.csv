@@ -4,3 +4,8 @@ fecha_utc,job,entrada,salida,segundos,filas_salida
 2026-11-27T13:31:21Z,mr04,/smartcity/sandbox/mr_muestra/evento.jsonl,/smartcity/sandbox/mapreduce/mr04,17.495,15
 2026-11-27T13:31:44Z,mr05,/smartcity/sandbox/mr_muestra/lectura.jsonl,/smartcity/sandbox/mapreduce/mr05,17.516,10
 2026-11-27T13:32:13Z,mr02,/smartcity/sandbox/mapreduce/mr01,/smartcity/sandbox/mapreduce/mr02,17.461,5
+2026-11-27T23:31:54Z,mr01,/smartcity/raw/mongo_exports/lectura/*/lectura.jsonl,/smartcity/mapreduce/mr01,25.866,38
+2026-11-27T23:32:17Z,mr02,/smartcity/mapreduce/mr01,/smartcity/mapreduce/mr02,16.847,10
+2026-11-27T23:32:47Z,mr03,/smartcity/raw/mongo_exports/lectura/*/lectura.jsonl,/smartcity/mapreduce/mr03,24.627,16
+2026-11-27T23:33:11Z,mr04,/smartcity/raw/mongo_exports/evento/*/evento.jsonl,/smartcity/mapreduce/mr04,17.488,25
+2026-11-27T23:33:42Z,mr05,/smartcity/raw/mongo_exports/lectura/*/lectura.jsonl,/smartcity/mapreduce/mr05,24.613,4929

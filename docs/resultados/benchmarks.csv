@@ -1,0 +1,83 @@
+experimento,tecnologia,variante,escala_filas,segundos,detalle,medido_en
+E0,HDFS,put_csv,100000,2.0583,"{""bytes"": 5345487, ""bloques"": 1, ""replicacion"": 2}",2026-11-27T20:56:29+00:00
+E0,HDFS,put_csv,1000000,2.4094,"{""bytes"": 53453455, ""bloques"": 1, ""replicacion"": 2}",2026-11-27T20:57:09+00:00
+E0,HDFS,put_csv,5000000,11.8182,"{""bytes"": 267265149, ""bloques"": 2, ""replicacion"": 2}",2026-11-27T21:00:26+00:00
+E0,MongoDB,crear_indice,100000,0.228,{},2026-11-27T20:56:23+00:00
+E0,MongoDB,crear_indice,1000000,2.1399,{},2026-11-27T20:57:00+00:00
+E0,MongoDB,crear_indice,5000000,14.2103,{},2026-11-27T20:59:58+00:00
+E0,MongoDB,insert_many,100000,2.2039,"{""documentos"": 100000, ""bytes_datos"": 12550000, ""bytes_almacenados"": 2748416, ""bytes_indices"": 2244608}",2026-11-27T20:56:23+00:00
+E0,MongoDB,insert_many,1000000,20.8625,"{""documentos"": 1000000, ""bytes_datos"": 125500000, ""bytes_almacenados"": 27529216, ""bytes_indices"": 23093248}",2026-11-27T20:57:00+00:00
+E0,MongoDB,insert_many,5000000,107.6116,"{""documentos"": 5000000, ""bytes_datos"": 627500000, ""bytes_almacenados"": 137936896, ""bytes_indices"": 117346304}",2026-11-27T20:59:58+00:00
+E0,PostgreSQL,copy,100000,0.1449,"{""filas"": 100000, ""bytes_tabla_e_indice"": 10584064}",2026-11-27T20:56:21+00:00
+E0,PostgreSQL,copy,1000000,1.92,"{""filas"": 1000000, ""bytes_tabla_e_indice"": 105553920}",2026-11-27T20:56:37+00:00
+E0,PostgreSQL,copy,5000000,9.5902,"{""filas"": 5000000, ""bytes_tabla_e_indice"": 525852672}",2026-11-27T20:57:56+00:00
+E0,PostgreSQL,crear_indice,100000,0.1759,{},2026-11-27T20:56:21+00:00
+E0,PostgreSQL,crear_indice,1000000,1.486,{},2026-11-27T20:56:37+00:00
+E0,PostgreSQL,crear_indice,5000000,13.824,{},2026-11-27T20:57:56+00:00
+E0,Spark,csv_a_parquet,100000,8.461,"{""filas"": 100000, ""bytes_csv"": 5345487, ""bytes_parquet"": 316370}",2026-11-27T21:00:58+00:00
+E0,Spark,csv_a_parquet,1000000,2.2885,"{""filas"": 1000000, ""bytes_csv"": 53453455, ""bytes_parquet"": 2839289}",2026-11-27T21:00:58+00:00
+E0,Spark,csv_a_parquet,5000000,10.1589,"{""filas"": 5000000, ""bytes_csv"": 267265149, ""bytes_parquet"": 12830973}",2026-11-27T21:00:58+00:00
+E1,MongoDB,aggregate_group,100000,0.1348,"{""grupos"": 2500, ""suma"": 373070.171, ""tiempos"": [0.1494, 0.1348, 0.1295]}",2026-11-27T21:01:00+00:00
+E1,MongoDB,aggregate_group,1000000,1.1728,"{""grupos"": 25000, ""suma"": 3730389.5935, ""tiempos"": [1.1729, 1.1728, 1.1638]}",2026-11-27T21:02:50+00:00
+E1,MongoDB,aggregate_group,5000000,6.66,"{""grupos"": 125000, ""suma"": 18658787.3725, ""tiempos"": [6.66, 6.4324, 6.9159]}",2026-11-27T21:07:48+00:00
+E1,PostgreSQL,group_by_sql,100000,0.0483,"{""grupos"": 2500, ""suma"": 373070.171, ""tiempos"": [0.0534, 0.0473, 0.0483]}",2026-11-27T21:00:58+00:00
+E1,PostgreSQL,group_by_sql,1000000,0.1707,"{""grupos"": 25000, ""suma"": 3730389.5935, ""tiempos"": [0.1707, 0.1734, 0.1696]}",2026-11-27T21:02:41+00:00
+E1,PostgreSQL,group_by_sql,5000000,0.9994,"{""grupos"": 125000, ""suma"": 18658787.3725, ""tiempos"": [0.9994, 1.0018, 0.8094]}",2026-11-27T21:06:58+00:00
+E1,Spark,dataframe_cores1,100000,0.4804,"{""grupos"": 2500, ""suma"": 373070.171, ""tiempos"": [0.570177698000407, 0.48041288400054327, 0.41017267999995966]}",2026-11-27T21:09:49+00:00
+E1,Spark,dataframe_cores1,1000000,0.5734,"{""grupos"": 25000, ""suma"": 3730389.5935, ""tiempos"": [0.647592020999582, 0.5733834759994352, 0.5221252900009858]}",2026-11-27T21:09:49+00:00
+E1,Spark,dataframe_cores1,5000000,1.5883,"{""grupos"": 125000, ""suma"": 18658787.3725, ""tiempos"": [1.631355463001455, 1.5882571860001917, 1.5527848669989908]}",2026-11-27T21:09:49+00:00
+E1,Spark,dataframe_cores2,100000,0.5348,"{""grupos"": 2500, ""suma"": 373070.171, ""tiempos"": [0.47440085299967905, 0.5348110159993666, 1.1019176120007614]}",2026-11-27T21:09:24+00:00
+E1,Spark,dataframe_cores2,1000000,0.5395,"{""grupos"": 25000, ""suma"": 3730389.5935, ""tiempos"": [0.5394776570010436, 0.5538451070005976, 0.40988955200009514]}",2026-11-27T21:09:24+00:00
+E1,Spark,dataframe_cores2,5000000,0.8409,"{""grupos"": 125000, ""suma"": 18658787.3725, ""tiempos"": [0.8268461939987901, 0.8530892050002876, 0.8409164650001912]}",2026-11-27T21:09:24+00:00
+E2,MongoDB,con_indice,100000,0.0019,"{""filas"": 100, ""tiempos"": [0.0019, 0.0019, 0.0017], ""plan"": {""etapas"": [""LIMIT"", ""PROJECTION_SIMPLE"", ""FETCH"", ""IXSCAN""], ""docs_examinados"": 100, ""claves_examinadas"": 100, ""ms_servidor"": 1}}",2026-11-27T21:01:00+00:00
+E2,MongoDB,con_indice,1000000,0.0014,"{""filas"": 100, ""tiempos"": [0.0014, 0.0015, 0.0013], ""plan"": {""etapas"": [""LIMIT"", ""PROJECTION_SIMPLE"", ""FETCH"", ""IXSCAN""], ""docs_examinados"": 100, ""claves_examinadas"": 100, ""ms_servidor"": 0}}",2026-11-27T21:02:52+00:00
+E2,MongoDB,con_indice,5000000,0.0024,"{""filas"": 100, ""tiempos"": [0.0024, 0.0025, 0.0016], ""plan"": {""etapas"": [""LIMIT"", ""PROJECTION_SIMPLE"", ""FETCH"", ""IXSCAN""], ""docs_examinados"": 100, ""claves_examinadas"": 100, ""ms_servidor"": 1}}",2026-11-27T21:07:58+00:00
+E2,PostgreSQL,con_indice,100000,0.0014,"{""filas"": 100, ""tiempos"": [0.0012, 0.0018, 0.0014], ""plan"": {""nodos"": [""Limit"", ""Index Scan""], ""ms_servidor"": 0.169, ""bloques_leidos"": 49}}",2026-11-27T21:00:58+00:00
+E2,PostgreSQL,con_indice,1000000,0.0007,"{""filas"": 100, ""tiempos"": [0.0007, 0.0007, 0.0007], ""plan"": {""nodos"": [""Limit"", ""Index Scan""], ""ms_servidor"": 0.128, ""bloques_leidos"": 49}}",2026-11-27T21:02:41+00:00
+E2,PostgreSQL,con_indice,5000000,0.0007,"{""filas"": 100, ""tiempos"": [0.0008, 0.0007, 0.0006], ""plan"": {""nodos"": [""Limit"", ""Index Scan""], ""ms_servidor"": 0.079, ""bloques_leidos"": 48}}",2026-11-27T21:06:59+00:00
+E2,Spark,full_scan_parquet,100000,0.3708,"{""filas"": 100, ""ultima"": ""2023-01-21 19:45:00"", ""tiempos"": [0.42465740800071217, 0.3100061259992799, 0.3708106800004316]}",2026-11-27T21:09:24+00:00
+E2,Spark,full_scan_parquet,1000000,0.1564,"{""filas"": 100, ""ultima"": ""2023-07-28 07:45:00"", ""tiempos"": [0.1798009189988079, 0.15452873399954115, 0.15636430400081736]}",2026-11-27T21:09:24+00:00
+E2,Spark,full_scan_parquet,5000000,0.2867,"{""filas"": 100, ""ultima"": ""2025-11-07 15:45:00"", ""tiempos"": [0.2866742089991021, 0.2812761099994532, 0.29937211200012825]}",2026-11-27T21:09:24+00:00
+E2,Spark,job_completo_con_arranque,100000,12.699,"{""nota"": ""spark-submit completo: JVM, registro en el master, ejecutores, consulta""}",2026-11-27T21:10:01+00:00
+E3,MongoDB,lookup_por_documento,100000,25.2893,"{""grupos"": 44, ""total"": 100000, ""tiempos"": [25.46, 25.2893, 24.3602]}",2026-11-27T21:02:40+00:00
+E3,MongoDB,lookup_por_documento,1000000,236.5243,"{""grupos"": 44, ""total"": 1000000, ""tiempos"": [236.5243]}",2026-11-27T21:06:53+00:00
+E3,MongoDB,lookup_tras_agrupar,100000,0.1119,"{""grupos"": 44, ""total"": 100000, ""tiempos"": [0.119, 0.1111, 0.1119]}",2026-11-27T21:01:00+00:00
+E3,MongoDB,lookup_tras_agrupar,1000000,0.9277,"{""grupos"": 44, ""total"": 1000000, ""tiempos"": [0.9543, 0.9277, 0.891]}",2026-11-27T21:02:56+00:00
+E3,MongoDB,lookup_tras_agrupar,5000000,4.8932,"{""grupos"": 44, ""total"": 5000000, ""tiempos"": [5.1945, 4.7373, 4.8932]}",2026-11-27T21:08:20+00:00
+E3,PostgreSQL,join_sql,100000,0.0485,"{""grupos"": 44, ""total"": 100000, ""tiempos"": [0.0501, 0.0485, 0.0471]}",2026-11-27T21:00:59+00:00
+E3,PostgreSQL,join_sql,1000000,0.5765,"{""grupos"": 44, ""total"": 1000000, ""tiempos"": [0.5641, 0.6329, 0.5765]}",2026-11-27T21:02:44+00:00
+E3,PostgreSQL,join_sql,5000000,3.5238,"{""grupos"": 44, ""total"": 5000000, ""tiempos"": [3.5238, 4.3208, 3.2952]}",2026-11-27T21:07:13+00:00
+E3,Spark,join_broadcast_cores2,100000,0.434,"{""grupos"": 44, ""total"": 100000, ""tiempos"": [0.4799975589994574, 0.4005343150001863, 0.43396565800139797]}",2026-11-27T21:09:24+00:00
+E3,Spark,join_broadcast_cores2,1000000,0.5283,"{""grupos"": 44, ""total"": 1000000, ""tiempos"": [0.5296279089998279, 0.5283478969995485, 0.4593939859987586]}",2026-11-27T21:09:24+00:00
+E3,Spark,join_broadcast_cores2,5000000,0.9101,"{""grupos"": 44, ""total"": 5000000, ""tiempos"": [0.9167044899986649, 0.9100922929992521, 0.8969661319988518]}",2026-11-27T21:09:24+00:00
+E4,MongoDB,consulta_exists_campo_nuevo,1000000,0.4164,"{""encontrados"": 10000, ""sin_indice"": true, ""sentencias_ddl"": 0}",2026-11-27T21:08:44+00:00
+E4,MongoDB,insert_10k_campos_nuevos,1000000,0.1728,"{""tiempos"": [0.221, 0.1643, 0.1728], ""sentencias_ddl"": 0}",2026-11-27T21:08:44+00:00
+E4,PostgreSQL,pg_add_column_default_constante,1000000,0.001,"{""tiempos"": [0.0009, 0.0041, 0.001], ""reescribe_tabla"": false, ""sentencias_ddl"": 1}",2026-11-27T21:08:37+00:00
+E4,PostgreSQL,pg_add_column_default_volatil,1000000,4.2062,"{""tiempos"": [4.2062, 3.5908, 4.7961], ""reescribe_tabla"": true, ""sentencias_ddl"": 1}",2026-11-27T21:08:37+00:00
+E4,PostgreSQL,pg_add_column_jsonb,1000000,0.0148,"{""tiempos"": [0.0258, 0.0148, 0.0044], ""reescribe_tabla"": false, ""sentencias_ddl"": 1}",2026-11-27T21:08:37+00:00
+E4,PostgreSQL,pg_add_column_nullable,1000000,0.0008,"{""tiempos"": [0.0009, 0.0008, 0.0007], ""reescribe_tabla"": false, ""sentencias_ddl"": 1}",2026-11-27T21:08:37+00:00
+E4,PostgreSQL,pg_insert_10k_nuevo_tipo,1000000,0.0607,"{""tiempos"": [0.0607, 0.062, 0.0514], ""reescribe_tabla"": false, ""sentencias_ddl"": 0}",2026-11-27T21:08:37+00:00
+E4,PostgreSQL,pg_insert_tipo_sensor,1000000,0.0023,"{""tiempos"": [0.0026, 0.0022, 0.0023], ""reescribe_tabla"": false, ""sentencias_ddl"": 0}",2026-11-27T21:08:37+00:00
+E5,Spark,cores1,100000,0.4804,"{""grupos"": 2500, ""suma"": 373070.171, ""tiempos"": [0.570177698000407, 0.48041288400054327, 0.41017267999995966], ""consulta"": ""E1""}",2026-11-27T21:09:49+00:00
+E5,Spark,cores1,1000000,0.5734,"{""grupos"": 25000, ""suma"": 3730389.5935, ""tiempos"": [0.647592020999582, 0.5733834759994352, 0.5221252900009858], ""consulta"": ""E1""}",2026-11-27T21:09:49+00:00
+E5,Spark,cores1,5000000,1.5883,"{""grupos"": 125000, ""suma"": 18658787.3725, ""tiempos"": [1.631355463001455, 1.5882571860001917, 1.5527848669989908], ""consulta"": ""E1""}",2026-11-27T21:09:49+00:00
+E5,Spark,cores2,100000,0.5348,"{""grupos"": 2500, ""suma"": 373070.171, ""tiempos"": [0.47440085299967905, 0.5348110159993666, 1.1019176120007614], ""consulta"": ""E1""}",2026-11-27T21:09:24+00:00
+E5,Spark,cores2,1000000,0.5395,"{""grupos"": 25000, ""suma"": 3730389.5935, ""tiempos"": [0.5394776570010436, 0.5538451070005976, 0.40988955200009514], ""consulta"": ""E1""}",2026-11-27T21:09:24+00:00
+E5,Spark,cores2,5000000,0.8409,"{""grupos"": 125000, ""suma"": 18658787.3725, ""tiempos"": [0.8268461939987901, 0.8530892050002876, 0.8409164650001912], ""consulta"": ""E1""}",2026-11-27T21:09:24+00:00
+E6,HDFS,deteccion_nodo_muerto,,97.0,"{""fuente"": ""hdfs_tolerancia.md (A3.4)"", ""lectura_ok"": true, ""replicacion"": 2, ""datanodes"": 3}",2026-11-27T21:08:44+00:00
+E6,HDFS,lectura_con_nodo_caido,,1.8,"{""fuente"": ""hdfs_tolerancia.md (A3.4)"", ""lectura_ok"": true, ""replicacion"": 2, ""datanodes"": 3}",2026-11-27T21:08:44+00:00
+E6,HDFS,re_replicacion_completa,,152.0,"{""fuente"": ""hdfs_tolerancia.md (A3.4)"", ""lectura_ok"": true, ""replicacion"": 2, ""datanodes"": 3}",2026-11-27T21:08:44+00:00
+E6,HDFS,reingreso_nodo,,7.0,"{""fuente"": ""hdfs_tolerancia.md (A3.4)"", ""lectura_ok"": true, ""replicacion"": 2, ""datanodes"": 3}",2026-11-27T21:08:44+00:00
+E7,MongoDB,con_indice,100000,0.0019,"{""filas"": 100, ""tiempos"": [0.0019, 0.0019, 0.0017], ""plan"": {""etapas"": [""LIMIT"", ""PROJECTION_SIMPLE"", ""FETCH"", ""IXSCAN""], ""docs_examinados"": 100, ""claves_examinadas"": 100, ""ms_servidor"": 1}}",2026-11-27T21:01:00+00:00
+E7,MongoDB,con_indice,1000000,0.0014,"{""filas"": 100, ""tiempos"": [0.0014, 0.0015, 0.0013], ""plan"": {""etapas"": [""LIMIT"", ""PROJECTION_SIMPLE"", ""FETCH"", ""IXSCAN""], ""docs_examinados"": 100, ""claves_examinadas"": 100, ""ms_servidor"": 0}}",2026-11-27T21:02:52+00:00
+E7,MongoDB,con_indice,5000000,0.0024,"{""filas"": 100, ""tiempos"": [0.0024, 0.0025, 0.0016], ""plan"": {""etapas"": [""LIMIT"", ""PROJECTION_SIMPLE"", ""FETCH"", ""IXSCAN""], ""docs_examinados"": 100, ""claves_examinadas"": 100, ""ms_servidor"": 1}}",2026-11-27T21:07:58+00:00
+E7,MongoDB,sin_indice,100000,0.0485,"{""filas"": 100, ""tiempos"": [0.0493, 0.0464, 0.0485], ""plan"": {""etapas"": [""PROJECTION_SIMPLE"", ""SORT"", ""COLLSCAN""], ""docs_examinados"": 100000, ""claves_examinadas"": 0, ""ms_servidor"": 48}}",2026-11-27T21:01:00+00:00
+E7,MongoDB,sin_indice,1000000,0.4469,"{""filas"": 100, ""tiempos"": [0.4531, 0.4452, 0.4469], ""plan"": {""etapas"": [""PROJECTION_SIMPLE"", ""SORT"", ""COLLSCAN""], ""docs_examinados"": 1000000, ""claves_examinadas"": 0, ""ms_servidor"": 437}}",2026-11-27T21:02:53+00:00
+E7,MongoDB,sin_indice,5000000,2.2214,"{""filas"": 100, ""tiempos"": [2.2214, 2.1336, 2.2649], ""plan"": {""etapas"": [""PROJECTION_SIMPLE"", ""SORT"", ""COLLSCAN""], ""docs_examinados"": 5000000, ""claves_examinadas"": 0, ""ms_servidor"": 2458}}",2026-11-27T21:08:00+00:00
+E7,PostgreSQL,con_indice,100000,0.0014,"{""filas"": 100, ""tiempos"": [0.0012, 0.0018, 0.0014], ""plan"": {""nodos"": [""Limit"", ""Index Scan""], ""ms_servidor"": 0.169, ""bloques_leidos"": 49}}",2026-11-27T21:00:58+00:00
+E7,PostgreSQL,con_indice,1000000,0.0007,"{""filas"": 100, ""tiempos"": [0.0007, 0.0007, 0.0007], ""plan"": {""nodos"": [""Limit"", ""Index Scan""], ""ms_servidor"": 0.128, ""bloques_leidos"": 49}}",2026-11-27T21:02:41+00:00
+E7,PostgreSQL,con_indice,5000000,0.0007,"{""filas"": 100, ""tiempos"": [0.0008, 0.0007, 0.0006], ""plan"": {""nodos"": [""Limit"", ""Index Scan""], ""ms_servidor"": 0.079, ""bloques_leidos"": 48}}",2026-11-27T21:06:59+00:00
+E7,PostgreSQL,sin_indice,100000,0.0109,"{""filas"": 100, ""tiempos"": [0.0109, 0.0102, 0.0114], ""plan"": {""nodos"": [""Limit"", ""Sort"", ""Seq Scan""], ""ms_servidor"": 8.754, ""bloques_leidos"": 904}}",2026-11-27T21:00:58+00:00
+E7,PostgreSQL,sin_indice,1000000,0.0376,"{""filas"": 100, ""tiempos"": [0.0366, 0.0392, 0.0376], ""plan"": {""nodos"": [""Limit"", ""Gather Merge"", ""Sort"", ""Seq Scan""], ""ms_servidor"": 35.604, ""bloques_leidos"": 9148}}",2026-11-27T21:02:41+00:00
+E7,PostgreSQL,sin_indice,5000000,0.1649,"{""filas"": 100, ""tiempos"": [0.1687, 0.1565, 0.1649], ""plan"": {""nodos"": [""Limit"", ""Gather Merge"", ""Sort"", ""Seq Scan""], ""ms_servidor"": 155.952, ""bloques_leidos"": 45052}}",2026-11-27T21:06:59+00:00
+INFO,PostgreSQL,entorno,,0.0,"{""cpus_docker"": ""12"", ""memoria_docker"": ""7.7 GiB"", ""postgresql"": ""16.15 (Debian 16.15-1.pgdg13+2)"", ""shared_buffers"": ""128MB"", ""mongodb"": ""7.0.43"", ""spark"": ""3.5 (1 worker, 2 núcleos, 2 GB)"", ""hdfs"": ""3.2.1 (3 DataNodes, replicación 2)"", ""anfitrion"": ""Windows-11""}",2026-11-27T20:56:20+00:00

@@ -1,0 +1,7 @@
+consulta,variante,indice,etapa,docs,claves,devueltos,ms,descripcion
+MG-Q01,con_indice,ix_sensor_ts,IXSCAN,50,50,50,0.0,"Lecturas de un sensor (S-011), últimas 50"
+MG-Q01,sin_indice,ix_sensor_ts,COLLSCAN,1068584,0,50,533.0,"Lecturas de un sensor (S-011), últimas 50"
+MG-Q02,con_indice,ix_tipo_zona_ts / ix_ts,IXSCAN,1550,1550,336,3.0,Lecturas de Zona Norte del 2024-04-01
+MG-Q02,sin_indice,ix_tipo_zona_ts / ix_ts,COLLSCAN,1068584,0,336,682.0,Lecturas de Zona Norte del 2024-04-01
+MG-Q05,con_indice,ix_zona_emitida,COLLSCAN,1190,0,347,1.0,Alertas por zona entre 2024-02-15 y 2024-06-15
+MG-Q05,sin_indice,ix_zona_emitida,COLLSCAN,1190,0,347,1.0,Alertas por zona entre 2024-02-15 y 2024-06-15

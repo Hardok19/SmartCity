@@ -246,7 +246,7 @@ def _mapa_y_detalle(f, variable: str) -> None:
         else:
             ui.vacio()
         ui.etiqueta_origen(origen, "" if origen == FUENTE_POSTGRES else
-                           "posiciones desde MongoDB hasta que la pareja A publique sensores(f)")
+                           "posiciones desde MongoDB (PostgreSQL no disponible)")
     with c2:
         st.markdown("**Detalle de lecturas** (COLUMNAS_ESTANDAR)")
         partes, origenes, errores = [], [], []
@@ -266,8 +266,12 @@ def _mapa_y_detalle(f, variable: str) -> None:
                 origenes.append(fuente)
         for e in errores:
             ui.aviso_error("Detalle", e)
-        datos = pd.concat([p for p in partes if p is not None and not p.empty], ignore_index=True) if partes else pd.DataFrame()
-        ui.tabla(datos.sort_values("timestamp", ascending=False) if not datos.empty else datos, "detalle")
+        con_filas = [p for p in partes if p is not None and not p.empty]
+        if con_filas:
+            datos = pd.concat(con_filas, ignore_index=True).sort_values("timestamp", ascending=False)
+            ui.tabla(datos, "detalle")
+        else:
+            ui.vacio()
         ui.etiqueta_origen(origenes or [FUENTE_MONGO], "columna «fuente» por fila")
 
 

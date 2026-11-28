@@ -4,7 +4,8 @@
 Uso dentro de smartcity_spark_master:
     spark-submit --master spark://spark-master:7077 /opt/smartcity/spark/jobs/analitica.py
 
-Solo lee el Parquet limpio de B3.2. Escribe resultados Parquet en HDFS sandbox,
+Solo lee el Parquet limpio de B3.2 (RUTAS["ambiente"]). Escribe resultados Parquet en RUTAS["analitica"]
+(/smartcity/analytics/<salida>),
 no modifica datos MongoDB/PostgreSQL ni sobrescribe el ETL original.
 """
 import argparse
@@ -13,15 +14,16 @@ import os
 import math
 from itertools import combinations_with_replacement
 
-from pyspark.sql import SparkSession, functions as F, types as T
+from pyspark.sql import functions as F, types as T
+from common import CATALOGO_SENSORES, RUTAS, get_spark
 from movilidad_trafico import analizar_trafico
 from pyspark.sql.window import Window
 from pyspark.ml.feature import VectorAssembler
 from pyspark.ml.regression import LinearRegression
 from pyspark.ml.evaluation import RegressionEvaluator
 
-ENTRADA = "hdfs://namenode:8020/smartcity/sandbox/etl_ambiente_completa"
-SALIDA = "hdfs://namenode:8020/smartcity/sandbox/analitica"
+ENTRADA = RUTAS["ambiente"]
+SALIDA = RUTAS["analitica"]
 
 
 def analizar_descriptivo(df):
@@ -373,7 +375,7 @@ def analizar_espacial(df):
     """
     spark = df.sparkSession
     catalogo = (
-        spark.read.option("header", True).csv("/opt/smartcity/data/maestros/sensores.csv")
+        spark.read.option("header", True).csv(CATALOGO_SENSORES)
         .select(
             "id_sensor", F.col("zona").alias("zona_catalogo"), "origen",
             F.col("lat").cast("double").alias("latitud"),
@@ -659,12 +661,13 @@ def analizar_anomalias(df):
         )
     )
 
-    # Regla IQR por sensor/indicador (percentiles aproximados, precision 1000).
+    # Regla IQR por sensor/indicador con percentiles EXACTOS (`percentile`, interpolación lineal).
+    # percentile_approx dependía del orden de las particiones y el conteo cambiaba entre ejecuciones.
     cuartiles = (
         validas.groupBy("id_sensor", "tipo_metrica")
         .agg(
             F.count("*").alias("n_iqr"),
-            F.percentile_approx("valor", F.array(F.lit(0.25), F.lit(0.75)), 1000).alias("q"),
+            F.expr("percentile(valor, array(0.25, 0.75))").alias("q"),
         )
         .withColumn("q1", F.col("q").getItem(0))
         .withColumn("q3", F.col("q").getItem(1))
@@ -1059,14 +1062,7 @@ def main():
     args = parser.parse_args()
     seleccionados = list(dict.fromkeys(args.analisis))
 
-    spark = (
-        SparkSession.builder
-        .appName("SmartCity-B4.2-Analitica")
-        .config("spark.sql.session.timeZone", "UTC")
-        .config("spark.sql.shuffle.partitions", "8")
-        .getOrCreate()
-    )
-    spark.sparkContext.setLogLevel("WARN")
+    spark = get_spark("SmartCity-B4.2-Analitica")
     try:
         df = spark.read.parquet(ENTRADA)
         requeridas = {"zona", "timestamp", "id_sensor", "tipo_metrica", "valor", "origen"}

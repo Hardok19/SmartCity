@@ -90,7 +90,13 @@ def registro_consultas(nombre_modulo: str, atributo: str, tecnologia: str) -> Op
     return salida
 
 
-@st.cache_data(ttl=600, show_spinner=False)
+# 12 h: la primera carga de la vista principal con los datos completos tarda ~30 s (agregaciones de MongoDB sobre
+# 1 M documentos); con la caché llena tarda < 1 s. Solo se guardan lecturas: CRUD, put/rm de HDFS y MapReduce llaman
+# al conector sin caché. «Actualizar datos» (barra lateral) y «Recalcular» (Spark) la vacían.
+CACHE_TTL_S = 12 * 3600
+
+
+@st.cache_data(ttl=CACHE_TTL_S, show_spinner=False)
 def _llamar_cache(nombre_modulo: str, funcion: str, *args, **kwargs):
     return getattr(modulo(nombre_modulo), funcion)(*args, **kwargs)
 

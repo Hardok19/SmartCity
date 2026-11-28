@@ -12,13 +12,15 @@ from contrato import FUENTES_VALIDAS, ZONAS
 
 from . import fuentes
 
-# Variables medidas (tipo de medición). calidad_aire -> tipo del contrato; clima no está en el contrato.
+# Variables medidas (tipo de medición): mismos códigos que contrato.TIPOS_METRICA (D-01).
 VARIABLES = {
     "pm25": "PM2.5 (µg/m³)", "pm10": "PM10 (µg/m³)", "no2": "NO₂ (µg/m³)", "o3": "O₃ (µg/m³)", "co": "CO (µg/m³)",
-    "temperatura": "Temperatura (°C)", "humedad": "Humedad (%)", "precipitacion": "Precipitación (mm)",
-    "viento": "Viento (km/h)",
+    "co2": "CO₂ (ppm)", "temperatura": "Temperatura (°C)", "humedad": "Humedad (%)",
+    "precipitacion": "Precipitación (mm)", "viento": "Viento (km/h)",
 }
-VARIABLES_AIRE = {"pm25", "pm10", "no2", "o3", "co"}
+VARIABLES_AIRE = {"pm25", "pm10", "no2", "o3", "co", "co2"}
+TODAS = "todas"                     # sin filtro de tipo; los gráficos de variable muestran PM2.5
+VARIABLE_POR_DEFECTO = "pm25"
 
 
 @dataclass(frozen=True)
@@ -42,7 +44,11 @@ def barra_lateral() -> Seleccion:
     f_ini, f_fin = (rango if isinstance(rango, (tuple, list)) and len(rango) == 2 else (inicio, fin))
     perfil = st.sidebar.selectbox("Perfil horario", list(ETIQUETAS_PERFIL), format_func=ETIQUETAS_PERFIL.get)
     zonas = st.sidebar.multiselect("Zona(s)", ZONAS, default=ZONAS)
-    variable = st.sidebar.selectbox("Tipo de medición", list(VARIABLES), format_func=VARIABLES.get)
+    eleccion = st.sidebar.selectbox("Tipo de medición", [TODAS, *VARIABLES],
+                                    format_func=lambda v: "Todas las mediciones" if v == TODAS else VARIABLES[v],
+                                    help="Filtra KPIs, tabla y mapa por la métrica elegida. Con «Todas», los "
+                                         "gráficos por variable muestran PM2.5.")
+    variable = VARIABLE_POR_DEFECTO if eleccion == TODAS else eleccion
 
     with st.sidebar.expander("Más filtros"):
         sensores, _, _ = fuentes.llamar_b("ids_sensores")
@@ -60,7 +66,7 @@ def barra_lateral() -> Seleccion:
     filtros = Filtros(
         fecha_inicio=f_ini, fecha_fin=f_fin, perfil_horario=perfil,
         zonas=tuple(zonas) if zonas and len(zonas) < len(ZONAS) else (),
-        tipos_metrica=("calidad_aire",) if variable in VARIABLES_AIRE else (),
+        tipos_metrica=() if eleccion == TODAS else (eleccion,),
         id_sensor=None if id_sensor == "(todos)" else id_sensor,
         tipo_evento=None if tipo_evento == "(todos)" else tipo_evento,
         fuente=None if fuente == "(todas)" else fuente,

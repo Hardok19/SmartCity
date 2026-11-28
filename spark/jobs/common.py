@@ -12,17 +12,24 @@ import os
 
 from pyspark.sql import SparkSession
 
-from rutas import RUTAS as _RUTAS
+from rutas import CAPAS_ESCRITURA, RUTAS as _RUTAS
 
 MASTER = os.environ.get("SPARK_MASTER_URL", "spark://spark-master:7077")
 HDFS = "hdfs://namenode:8020"
 BASE = HDFS + "/smartcity"
-CATALOGO_SENSORES = "/opt/smartcity/data/maestros/sensores.csv"
+# file:// explícito: get_spark() fija fs.defaultFS = HDFS, así que una ruta sin esquema se buscaría en HDFS.
+CATALOGO_SENSORES = "file:///opt/smartcity/data/maestros/sensores.csv"
 DIRECTORIO_SQL = "/opt/smartcity/spark/sql"
 MONGO_DB = os.environ.get("MONGO_DB", "smartcity_db")
 PAQUETE_MONGO = "org.mongodb.spark:mongo-spark-connector_2.12:10.4.1"
 
 RUTAS = {clave: HDFS + ruta for clave, ruta in _RUTAS.items()}
+
+
+def salida_permitida(ruta):
+    """True si la ruta HDFS está en una capa donde los jobs pueden escribir (curated, analytics o sandbox)."""
+    ruta = ruta.rstrip("/") + "/"
+    return any(ruta.startswith(HDFS + capa) for capa in CAPAS_ESCRITURA)
 
 PARTICIONADOR_UNICO = "com.mongodb.spark.sql.connector.read.partitioner.SinglePartitionPartitioner"
 

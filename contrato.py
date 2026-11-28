@@ -2,6 +2,14 @@
 contrato.py — Contrato de datos compartido para el proyecto SmartCity Analytics (CE-3191)
 NO modificar sin avisar al otro equipo. Cualquier cambio aquí afecta a ambos módulos
 de conectores y al dashboard.
+
+Cambios:
+  2026-11-27 (D-01 / F1.1): TIPOS_METRICA incluye las variables concretas de Ambiente
+    (pm25, pm10, co, no2, o3, co2, temperatura, humedad, precipitacion, viento), con su unidad en
+    UNIDADES. Así una fila de COLUMNAS_ESTANDAR dice QUÉ se midió y el clima entra al contrato.
+    Se conserva "calidad_aire" como categoría (equivale a PM2.5 cuando se pide como tipo, por
+    compatibilidad). CATEGORIA_POR_METRICA indica el tipo de sensor que produce cada métrica
+    (= tipos_sensor.tipo_sensor en PostgreSQL = campo `tipo` de la colección lectura en MongoDB).
 """
 
 import pandas as pd
@@ -27,7 +35,32 @@ TIPOS_METRICA = [
     "ruido",
     "ocupacion_parqueo",
     "transporte_publico",
+    # D-01: variables concretas de Ambiente (mismos códigos que variables_medicion y que mediciones.* en Mongo)
+    "pm25",
+    "pm10",
+    "co",
+    "no2",
+    "o3",
+    "co2",
+    "temperatura",
+    "humedad",
+    "precipitacion",
+    "viento",
 ]
+
+# Tipo de sensor que produce cada métrica (tipos_sensor en PostgreSQL, campo `tipo` en Mongo).
+# "clima" es un tipo de sensor, no una métrica: sus métricas son temperatura, humedad, precipitacion y viento.
+CATEGORIA_POR_METRICA = {
+    "calidad_aire": "calidad_aire",
+    "pm25": "calidad_aire", "pm10": "calidad_aire", "co": "calidad_aire", "no2": "calidad_aire",
+    "o3": "calidad_aire", "co2": "calidad_aire",
+    "temperatura": "clima", "humedad": "clima", "precipitacion": "clima", "viento": "clima",
+    "trafico": "trafico", "energia": "energia", "ruido": "ruido",
+    "ocupacion_parqueo": "ocupacion_parqueo", "transporte_publico": "transporte_publico",
+}
+
+# Métrica concreta que representa cada categoría cuando se pide la categoría como tipo (compatibilidad)
+METRICA_DE_CATEGORIA = {"calidad_aire": "pm25"}
 
 # =========================================================
 # Estados válidos de sensor
@@ -53,13 +86,28 @@ COLUMNAS_ESTANDAR = ["zona", "timestamp", "id_sensor", "tipo_metrica", "valor", 
 # Unidades por tipo de métrica
 # =========================================================
 UNIDADES = {
-    "calidad_aire": "µg/m3",       # PM2.5, PM10
+    "calidad_aire": "µg/m3",       # PM2.5 (ver METRICA_DE_CATEGORIA)
     "trafico": "vehiculos/hora",
     "energia": "kWh",
     "ruido": "dB",
     "ocupacion_parqueo": "%",
     "transporte_publico": "pasajeros",
+    "pm25": "µg/m3",
+    "pm10": "µg/m3",
+    "co": "µg/m3",
+    "no2": "µg/m3",
+    "o3": "µg/m3",
+    "co2": "ppm",
+    "temperatura": "°C",
+    "humedad": "%",
+    "precipitacion": "mm",
+    "viento": "km/h",
 }
+
+
+def tipos_sensor_de(metricas) -> list[str]:
+    """Tipos de sensor que producen las métricas pedidas (para filtrar catálogos de sensores)."""
+    return sorted({CATEGORIA_POR_METRICA[m] for m in metricas if m in CATEGORIA_POR_METRICA})
 
 # =========================================================
 # Formato y zona horaria de timestamp

@@ -51,21 +51,21 @@ MongoDB ──(export JSON Lines)──► HDFS /smartcity/raw/mongo_exports/  [
 | Fase | Nombre | Resp. | Tareas | Hechas | Estado |
 |---|---|---|---|---|---|
 | F0 | Entorno Docker (ya existente) | AB | 3 | 3 | 🟢 |
-| F1 | Acuerdos comunes y datos maestros | AB | 6 | 3 | 🟡 |
-| F2 | Adquisición de datos (OpenAQ + Open-Meteo) | A/B | 4 | 3 | 🟡 |
+| F1 | Acuerdos comunes y datos maestros | AB | 6 | 6 | 🟢 |
+| F2 | Adquisición de datos (OpenAQ + Open-Meteo) | A/B | 4 | 4 | 🟢 |
 | A1 | PostgreSQL: modelo y DDL | A | 5 | 5 | 🟢 |
-| A2 | PostgreSQL: consultas, vistas, funciones, optimización | A | 6 | 5 | 🟡 |
-| A3 | HDFS: estructura, carga y operaciones | A | 5 | 4 | 🟡 |
-| A4 | Hadoop: MapReduce | A | 4 | 3 | 🟡 |
+| A2 | PostgreSQL: consultas, vistas, funciones, optimización | A | 6 | 6 | 🟢 |
+| A3 | HDFS: estructura, carga y operaciones | A | 5 | 5 | 🟢 |
+| A4 | Hadoop: MapReduce | A | 4 | 4 | 🟢 |
 | A5 | Módulo `conectores_postgres_hadoop.py` | A | 4 | 4 | 🟢 |
 | B1 | MongoDB: modelo, validadores e índices | B | 3 | 3 | 🟢 |
-| B2 | MongoDB: carga, CRUD, consultas y export | B | 6 | 4 | 🟡 |
-| B3 | Spark: entorno y ETL | B | 4 | 2 | 🟡 |
+| B2 | MongoDB: carga, CRUD, consultas y export | B | 6 | 6 | 🟢 |
+| B3 | Spark: entorno y ETL | B | 4 | 3 | 🟡 |
 | B4 | Spark: SQL obligatorias y análisis | B | 4 | 3 | 🟡 |
-| B5 | Módulo `conectores_mongo_spark.py` | B | 4 | 3 | 🟡 |
-| D | Dashboard Streamlit | AB | 8 | 5 | 🟡 |
-| C | Comparación tecnológica (experimentos) | AB | 3 | 0 | ⚪ |
-| E | Documentación, defensa y entrega | AB | 8 | 0 | ⚪ |
+| B5 | Módulo `conectores_mongo_spark.py` | B | 4 | 4 | 🟢 |
+| D | Dashboard Streamlit | AB | 8 | 7 | 🟡 |
+| C | Comparación tecnológica (experimentos) | AB | 3 | 3 | 🟢 |
+| E | Documentación, defensa y entrega | AB | 8 | 3 | 🟡 |
 | R | Reto adicional: streaming | B | 1 | 1 | 🟢 |
 
 Leyenda: ⚪ sin empezar · 🟡 en curso · 🟢 completa · 🔴 bloqueada.
@@ -79,11 +79,11 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 
 | ID | Decisión | Estado |
 |---|---|---|
-| D-01 | `contrato.py` no tiene tipos para clima ni distingue contaminantes (todo es `calidad_aire`). **Propuesta:** agregar a `TIPOS_METRICA` `pm25, pm10, co, no2, o3, temperatura, humedad, precipitacion` con `UNIDADES` `µg/m3, µg/m3, µg/m3, µg/m3, µg/m3, °C, %, mm` (se conserva `calidad_aire` como categoría). | ⏳ acordar en F1.1 |
+| D-01 | `contrato.py` no tiene tipos para clima ni distingue contaminantes (todo es `calidad_aire`). **Propuesta:** agregar a `TIPOS_METRICA` `pm25, pm10, co, no2, o3, temperatura, humedad, precipitacion` con `UNIDADES` `µg/m3, µg/m3, µg/m3, µg/m3, µg/m3, °C, %, mm` (se conserva `calidad_aire` como categoría). | ✅ 2026-11-27 · aplicado (F1.1) con `co2` y `viento` además; `CATEGORIA_POR_METRICA` + `tipos_sensor_de()` |
 | D-02 | Ciudad de referencia: `contrato.py` exige 5 zonas (Norte/Sur/Centro/Este/Oeste). Elegir **una ciudad real con ≥ 5 estaciones OpenAQ con PM2.5 y ≥ 2 años de historia** (verificar en explore.openaq.org) y asignar cada estación a una zona según su posición respecto al centro. Open-Meteo se consulta en el centroide de cada zona. | ⏳ F1.2 |
 | D-03 | KPIs de Movilidad y Energía del enunciado quedan fuera del dominio Ambiente. **Recomendado:** series sintéticas mínimas (`trafico`, `energia`, ya previstas en `contrato.py`) generadas por B con perfil horario y documentadas como sintéticas, para que el dashboard muestre todos los KPIs (criterio de 14 pts). Alternativa: tarjetas "fuera de dominio" con justificación (riesgo de perder puntos). | ✅ 2026-11-27 · adoptado: `trafico` (`generar_trafico_sintetico.py`) y `energia` (`generar_energia_sintetica.py`) simulados, 87.720 filas cada uno (GENERACION_SINTETICA.md §6) |
 | D-04 | Spark desde Streamlit: el driver en Windows conectado al master en Docker suele fallar (red y versión de Python). **Recomendado:** los jobs corren con `spark-submit` dentro de `smartcity_spark_master` (repo montado) y escriben resultados en PostgreSQL/HDFS; el dashboard los lee y tiene un botón "Recalcular" que lanza el job con `docker exec`. | ✅ 2026-11-25 · adoptado: repo montado en `/opt/smartcity` y `spark-submit` vía `docker exec` (ver `docs/GUIA_SPARK.md`) |
-| D-05 | El compose usa 1 DataNode con `dfs.replication=1`: no se puede demostrar replicación ni tolerancia a fallos. **Propuesta:** 3 DataNodes y `replication=2`, más ResourceManager + NodeManager para MapReduce. | ✅ 2026-11-27 · aplicado en F0.3 (3 DataNodes, replicación 2, YARN) |
+| D-05 | El compose usa 1 DataNode con `dfs.replication=1`: no se puede demostrar replicación ni tolerancia a fallos. **Propuesta:** 3 DataNodes y `replication=2`, más ResourceManager + NodeManager para MapReduce. | ✅ 2026-11-27 · aplicado en F0.3 (3 DataNodes, replicación 2, YARN); desde el 2026-11-27 también los Parquet de Spark (todos los jobs usan `get_spark()`, antes 6 escribían con réplica 3) |
 | D-06 | Datos sintéticos para alcanzar los volúmenes mínimos (PG ≥ 100k, Mongo ≥ 500k, Spark ≥ 1 M, recomendado > 5 M total): sensores IoT virtuales por zona, anclados a los valores reales de OpenAQ/Open-Meteo + ruido + anomalías. Semilla fija `2026`. | ⏳ F1.5 |
 
 ---
@@ -104,7 +104,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 
 ## F1 — Acuerdos comunes y datos maestros (AB, 9–11 nov)
 
-- [ ] **F1.1** Cerrar el contrato de datos (D-01) — **AB**
+- [x] **F1.1** Cerrar el contrato de datos (D-01) — **AB** — ✅ 2026-11-27 · `TIPOS_METRICA` + `UNIDADES` con pm25, pm10, co, no2, o3, co2, temperatura, humedad, precipitacion, viento (mismos códigos que `variables_medicion`, Mongo y el ETL); `calidad_aire` queda como alias de PM2.5; cambio anotado en la cabecera. Adaptados `mongo_contrato.py`, `lecturas_mongo`, `lecturas_pg`, `lecturas_hdfs`, filtros por tipo de sensor y la barra lateral («Todas las mediciones»). `tests/test_contrato.py`. ⚠ avisar a la pareja A
   - Revisar `contrato.py` juntos, aplicar la ampliación de `TIPOS_METRICA`/`UNIDADES` y anotar el cambio en un comentario de cabecera. A partir de aquí **toda** función que devuelva lecturas al dashboard devuelve `COLUMNAS_ESTANDAR` en UTC y pasa `validar_zonas` + `validar_tipo_metrica`.
   - **Aceptación:** ambas parejas aprueban el PR; `python -c "import contrato"` funciona.
 - [x] **F1.2** Ciudad y zonas (D-02) — **AB** — ✅ 2026-11-23 · config/zonas.yaml y config/estaciones_openaq.yaml creados
@@ -118,9 +118,9 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 - [x] **F1.4** Catálogo maestro de sensores — **A** (lo consume B) — ✅ 2026-11-23 · scripts/generar_maestros.py → data/sensores.csv (ruta real: data/, no data/maestros/)
   - Generar `data/maestros/sensores.csv` (semilla 2026): estaciones OpenAQ reales (`origen=openaq`) + sensores IoT virtuales por zona (calidad del aire y clima; D-06) + los de `trafico`/`energia` si se aprueba D-03. Columnas: `id_sensor` (`S-001`… mismo id en PG, Mongo y HDFS), `nombre, tipo_metrica, categoria, zona, lat, lon, fecha_instalacion, estado, organismo`. ~5 % `inactivo` y ~3 % que **nunca** envían datos (para PG-Q07).
   - **Aceptación:** CSV commiteado (es pequeño); B lo usa en su generador.
-- [ ] **F1.5** Plan de volúmenes y datos sintéticos (D-03, D-06) — **AB**
+- [x] **F1.5** Plan de volúmenes y datos sintéticos (D-03, D-06) — **AB** — ✅ 2026-11-27 · `docs/datos/VOLUMENES.md`: real vs sintético, conteos medidos tras la corrida completa (PG 2.632.112 · Mongo 1.068.584 · Spark 4.380.538 · ≈ 8,1 M total), tamaños medidos (HDFS raw 448 MB, PG 427 MB, Mongo 387 MB): «bueno» (0,5–1 GB) sin contar benchmarks
   - Tabla en `docs/datos/VOLUMENES.md`: qué es real, qué es sintético, cuántas filas/documentos se esperan por tecnología y cómo se alcanzan los mínimos (PG ≥ 100k, Mongo ≥ 500k, Spark ≥ 1 M, meta > 5 M total, tamaño ≥ 500 MB).
-- [~] **F1.6** Estructura del repo, dependencias y estilo — **AB** — 🟡 2026-11-27 · carpetas `sql/{ddl,queries,demo}`, `hadoop/{hdfs,mapreduce}`, `data/samples`, `tests` y `requirements.txt` listos; falta probar `pip install -r` en un venv limpio
+- [x] **F1.6** Estructura del repo, dependencias y estilo — **AB** — ✅ 2026-11-27 · `pip install -r requirements.txt` en un venv limpio (Python 3.13) OK y `pytest` 43 pasan / 28 omitidas con ese entorno (52 tras F1.1) (`docs/resultados/qa_final.md`); se agregó `markdown` (armado del PDF)
   - Carpetas: `config/ data/{raw,interim,maestros} sql/{ddl,queries,demo} mongo/{queries} hadoop/{hdfs,mapreduce} spark/{jobs,sql} scripts/ docs/{datos,tecnico,diagramas,resultados,defensa,atributos} tests/`. `data/raw` y `data/interim` en `.gitignore`.
   - `requirements.txt` (fijar `pyspark==3.5.*` igual a la imagen): `pandas, numpy, pyarrow, requests, python-dotenv, pyyaml, psycopg2-binary, sqlalchemy, pymongo, hdfs, docker, pyspark, streamlit, plotly, pydeck, pytest`.
   - **Aceptación:** `pip install -r requirements.txt` en un venv limpio funciona.
@@ -132,7 +132,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 > Scripts idempotentes en `scripts/descargar_*.py` (si el archivo ya existe no se descarga de nuevo), con registro
 > en `data/raw/MANIFEST.json` (url, fecha, bytes). Respetar límites de las APIs (pausa entre requests, reintento en 429).
 
-- [x] **F2.1** OpenAQ — **B** — `scripts/descargar_openaq.py` — ✅ 2026-11-23 · scripts/descargar_openaq.py
+- [x] **F2.1** OpenAQ — **B** — `scripts/descargar_openaq.py` — ✅ 2026-11-23 · scripts/descargar_openaq.py · 2026-11-27: `scripts/descargar_openaq_archivo.py` (misma salida sin clave, archivo público S3; 168.824 filas de las 5 estaciones, ~1 min; PM2.5 solo en Centro y Este)
   - Por cada estación de `config/estaciones_openaq.yaml`: mediciones horarias de `pm25, pm10, co, no2, o3` (las disponibles). Opción 1: API v3 (requiere API key gratuita, en `.env`). Opción 2: archivo público en S3 `openaq-data-archive` (sin key, CSV.gz por estación/día).
   - Guardar en `data/raw/openaq/<estacion>/<anio>.csv`. Anotar licencia y fecha de descarga.
   - **Aceptación:** conteo de filas por estación y rango de fechas; % de nulos.
@@ -140,7 +140,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   - API de archivo histórico (`archive-api.open-meteo.com`) por centroide de zona: `temperature_2m, relative_humidity_2m, precipitation, wind_speed_10m` horario, mismo rango que OpenAQ, `timezone=UTC`, bloques de 1 año. Opcional: API de calidad del aire de Open-Meteo como respaldo si alguna zona queda sin estación OpenAQ.
   - Guardar `data/raw/openmeteo/zona_<zona>_<anio>.json`.
   - **Aceptación:** 5 zonas × años esperados, sin huecos grandes (script de validación).
-- [ ] **F2.3** Perfilado de fuentes — **AB** — `docs/datos/FUENTES.md`
+- [x] **F2.3** Perfilado de fuentes — **AB** — `docs/datos/FUENTES.md` — ✅ 2026-11-27 · `FUENTES.md` (descripción, URL, licencia, comando, limpieza, destino y por qué; descarga sin clave y convención de hora) + `perfil_fuentes.md` regenerado con OpenAQ (10 archivos, 168.824 filas), Open-Meteo (10 archivos, 0 nulos), tráfico y energía
   - Por fuente: descripción, URL, licencia, cómo se descarga (comando), filas, columnas, nulos, min/max, frecuencia, tamaño en disco, limpieza aplicada y **en qué tecnología termina y por qué**.
 - [x] **F2.4** Generador sintético — **B** — `scripts/generar_sinteticos.py` — ✅ 2026-11-23 · scripts/generar_sinteticos.py + docs/datos/GENERACION_SINTETICA.md
   - Sensores IoT virtuales de `sensores.csv`: lectura cada 15 min = valor real horario de su zona (OpenAQ/Open-Meteo interpolado) + sesgo propio + ruido gaussiano; ~1 % anomalías (picos, negativos, sensor pegado), huecos de 1–6 h, y desde cierta fecha un campo nuevo (`firmware 2.x` agrega `o3`, `bateria_pct`) → evolución de esquema. Más `trafico`/`energia` si D-03.
@@ -176,7 +176,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   - `v_sensor_detalle` (sensor + tipo + categoría + ubicación + zona + organismo); `mv_kpi_diario_zona` (PM2.5, temperatura, humedad por zona-día) y `mv_actividad_sensor` (nº mediciones, primera/última) con índice `UNIQUE` para `REFRESH … CONCURRENTLY`.
 - [x] **A2.2** Funciones y procedimientos — `sql/ddl/006_funciones.sql` — ✅ 2026-11-27 · `fn_sensores_por_organismo`, `fn_sensores_sin_actividad` (nunca vs. dejó de enviar), `fn_kpi_ambiente`, `fn_crear_particiones`, `sp_refrescar_mv()` (lo llama carga_pg)
   - `fn_sensores_por_organismo()`, `fn_sensores_sin_actividad(p_desde)` ("nunca enviaron" vs "dejaron de enviar"), `fn_kpi_ambiente(p_desde, p_hasta, p_zona)`, `sp_refrescar_mv()`.
-- [~] **A2.3** Consultas obligatorias PG-Q01…Q10 — `sql/queries/PG-Qxx_<nombre>.sql` con encabezado (`id, titulo, tecnicas, parametros`) — 🟡 2026-11-27 · 17 archivos `sql/queries/PG-*.sql` (Q01–Q10 + P01–P07 con CTE recursiva, ventanas, subconsultas, fechas, ROLLUP, generate_series, calendario); las 17 corren sin error; las de catálogo y tráfico devuelven filas, las de mediciones ambientales esperan el ETL ambiental
+- [x] **A2.3** Consultas obligatorias PG-Q01…Q10 — `sql/queries/PG-Qxx_<nombre>.sql` con encabezado (`id, titulo, tecnicas, parametros`) — ✅ 2026-11-27 · 17 archivos `sql/queries/PG-*.sql` (Q01–Q10 + P01–P07 con CTE recursiva, ventanas, subconsultas, fechas, ROLLUP, generate_series, calendario); las 17 devuelven filas con los datos completos (P04: Centro la zona más contaminada, 13,26 µg/m³; P07: racha de 18 días)
   | ID | Consulta | Técnicas a mostrar |
   |---|---|---|
   | PG-Q01 | Sensores por tipo | `GROUP BY`, `ORDER BY` |
@@ -193,7 +193,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   - Incluir al menos una `WITH RECURSIVE` (p. ej. jerarquía ciudad → distrito → zona → ubicación) — la rúbrica premia CTEs y window functions (7 pts).
   - **Aceptación:** las 14 consultas devuelven ≥ 1 fila con parámetros por defecto (requiere B3.4 para las de mediciones).
 - [x] **A2.4** Tablas destino de Spark listas y documentadas para **B** — `medicion_horaria`, `agg_ambiente_hora_zona`, `spark_kpi_zona`, `spark_anomalia` (columnas, tipos, PK) — **bloquea B3.4**. — ✅ 2026-11-27 · tablas destino en `002_extensiones.sql`; usadas por `carga_pg.py` (B3.4)
-- [x] **A2.5** Optimización con `EXPLAIN ANALYZE` — `docs/resultados/postgres_optimizacion.md` — ✅ 2026-11-27 · `scripts/pg_optimizacion.py` → `docs/resultados/postgres_optimizacion.md` y `benchmark_resultado` (175.440 filas): índice ×38, poda de particiones ×6, MV ×165, BRIN 22× más chico que B-tree pero ×2 más lento en 3 meses; repetir con los datos completos
+- [x] **A2.5** Optimización con `EXPLAIN ANALYZE` — `docs/resultados/postgres_optimizacion.md` — ✅ 2026-11-27 · `scripts/pg_optimizacion.py` re-ejecutado con 2.632.112 filas: índice B-tree ×283 (114 → 0,4 ms), poda de particiones ×10, MV ×3.900 (1.854 → 0,47 ms), BRIN 176× más chico que B-tree pero algo más lento en 3 meses (51 frente a 42 ms)
   - 4 casos: con/sin índice (`SET enable_indexscan=off`), poda de particiones, BRIN vs B-tree (tamaño y tiempo), MV vs consulta en vivo. Guardar tiempos en `benchmark_resultado`.
 - [x] **A2.6** Script de demo en vivo — `sql/demo/demo_defensa.sql` (plan B si la UI falla durante la defensa). — ✅ 2026-11-27 · `sql/demo/demo_defensa.sql` probado: muestra FK, CHECK y ON DELETE RESTRICT rechazando datos, consultas y EXPLAIN
 
@@ -201,7 +201,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 
 - [x] **A3.1** Estructura — `hadoop/hdfs/01_estructura.sh` — ✅ 2026-11-27 · `hadoop/hdfs/01_estructura.sh` ejecutado; justificación en `docs/tecnico/07_estrategia_big_data.md`
   - `/smartcity/raw/{openaq,openmeteo,sinteticos,mongo_exports}`, `/smartcity/curated`, `/smartcity/analytics`, `/smartcity/mapreduce`, `/smartcity/sandbox`; particiones estilo Hive `anio=/mes=`. Justificar en `docs/tecnico/07_estrategia_big_data.md`.
-- [~] **A3.2** Carga de crudos — `hadoop/hdfs/02_cargar_raw.sh` (`docker cp` + `hdfs dfs -put -f`) — 🟡 2026-11-27 · `hadoop/hdfs/02_cargar_raw.sh` (archivos por año, sin gzip, export Mongo con conteos); tráfico y energía ya en HDFS; faltan OpenAQ/Open-Meteo/Mongo (datos por copiar)
+- [x] **A3.2** Carga de crudos — `hadoop/hdfs/02_cargar_raw.sh` (`docker cp` + `hdfs dfs -put -f`) — ✅ 2026-11-27 · OpenAQ (10), Open-Meteo (10), tráfico, energía y export de Mongo (4 colecciones, conteo Mongo = HDFS); `/smartcity/raw` = 448 MB lógicos / 896 MB con réplica
   - Unir archivos pequeños antes de subir (p. ej. un CSV por mes) → **problema de archivos pequeños** (argumento de defensa). Sin gzip en los CSV grandes (no es divisible); justificar.
   - Nota: WebHDFS desde Windows redirige a `datanodeN:9864`; agregar esos nombres a `C:\Windows\System32\drivers\etc\hosts` → `127.0.0.1` o subir siempre vía `docker exec`.
   - **Aceptación:** `hdfs dfs -du -h /smartcity/raw` = tamaños locales.
@@ -214,7 +214,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 ### A4 — Hadoop: MapReduce (14–18 nov)
 
 - [x] **A4.1** Infraestructura de jobs — `hadoop/mapreduce/run_job.sh <job> <input> <output>` (Hadoop Streaming con Python; borra la salida previa). Cada job con `mapper.py`, `reducer.py`, `README.md` y prueba local `cat muestra | python mapper.py | sort | python reducer.py`. — ✅ 2026-11-27 · `hadoop/mapreduce/run_job.sh` (en el NameNode) + `ejecutar.sh` (anfitrión, anota tiempos en `docs/resultados/mapreduce_tiempos.csv`) + README
-- [~] **A4.2** Los 5 jobs de las preguntas del enunciado — 🟡 2026-11-27 · mr01–mr05 (Python 3.5, combiners, suma/conteo) corren en YARN con las muestras (17–19 s c/u); falta correrlos sobre el export real de lectura/evento
+- [x] **A4.2** Los 5 jobs de las preguntas del enunciado — ✅ 2026-11-27 · mr01–mr05 sobre el export real (445 MB) en YARN, 17–26 s c/u (`mapreduce_tiempos.csv`): 38 sensores; S-018 el de más lecturas (34.990); temperatura histórica 11,60 °C; 1.428 eventos (= Mongo); 4.929 filas sensor-día-variable en marzo 2024
   | Job | Pregunta | Entrada |
   |---|---|---|
   | `mr01` | ¿Cuántas mediciones existen por sensor? | raw OpenAQ + sintéticos (combiner = reducer) |
@@ -259,9 +259,9 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 
 ### B2 — MongoDB: carga, CRUD, consultas y export (11–17 nov)
 
-- [x] **B2.1** Carga de lecturas — `scripts/mongo_cargar.py`: OpenAQ real + sintéticos (F2.4), `insert_many(ordered=False)` en lotes de 10k, barra de progreso, `--limite` para pruebas. — ✅ 2026-11-25 · `lectura` = 1.068.777 documentos (≥ 500k); el script imprime el tiempo de carga, falta anotarlo
+- [x] **B2.1** Carga de lecturas — `scripts/mongo_cargar.py`: OpenAQ real + sintéticos (F2.4), `insert_many(ordered=False)` en lotes de 10k, barra de progreso, `--limite` para pruebas. — ✅ 2026-11-25 · 2026-11-27: `lectura` = 1.068.584 documentos (≥ 500k), 0 rechazados, 61 s (17.789 doc/s)
   - **Aceptación:** `db.lecturas.countDocuments()` ≥ 500.000; tiempo de carga anotado.
-- [x] **B2.2** Eventos, alertas e incidentes **derivados de las lecturas** — ✅ 2026-11-23 · generados en `scripts/generar_sinteticos.py` (alertas por umbral, eventos contaminación/falla/lluvia/ola de calor, 3.000 incidentes); 1.420 eventos en Mongo — (alertas = lecturas que superan umbrales, coherentes con los datos); incidentes con plantillas de texto en español por categoría.
+- [x] **B2.2** Eventos, alertas e incidentes **derivados de las lecturas** — ✅ 2026-11-23 · generados en `scripts/generar_sinteticos.py` (alertas por umbral, eventos contaminación/falla/lluvia/ola de calor, 3.000 incidentes); 2026-11-27: 1.190 alertas y 1.428 eventos en Mongo — (alertas = lecturas que superan umbrales, coherentes con los datos); incidentes con plantillas de texto en español por categoría.
 - [x] **B2.3** Demo CRUD — `mongo/03_crud_demo.js` + función Python: `insertOne, insertMany, find` (filtro + proyección + sort + limit), `findOne, updateOne` (`$set` + `$push`), `updateMany` (`$gt/$lt/$or`), `deleteOne` sobre una colección `demo_crud` (nunca sobre `lecturas`). Cada operación devuelve resultado + comando mongosh (para la UI). — ✅ 2026-11-23 · mongo/03_crud_demo.js · 2026-11-27: `conectores_mongo_spark.crud()` probado contra Mongo real (7 operaciones)
 - [x] **B2.4** Consultas obligatorias MG-Q01…Q10 — `mongo/queries/MG-Qxx.js` (mismo pipeline que en Python) — ✅ 2026-11-27 · 15 `.js` + mismos pipelines parametrizados en `conectores_mongo_spark.CONSULTAS_MONGO`; MG-Q09 con `$lookup`, MG-Q05 con `$geoNear` si `radio_km > 0`; la medición < 3 s está en `tests/test_conectores_mongo_spark.py` (falta correrla con Mongo arriba)
   | ID | Consulta | Técnica |
@@ -278,18 +278,18 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   | MG-Q10 | Filtros múltiples | `$and/$or/$in/$exists` (campos firmware 2.x) |
   - Preguntas del enunciado MG-P01…P05: temperatura promedio por zona, sensores sobre el límite, mediciones por sensor, zonas con más contaminación, evolución de una variable.
   - **Aceptación:** todas con parámetros por defecto válidos devuelven filas en < 3 s.
-- [~] **B2.5** Experimento de índices — `explain("executionStats")` de MG-Q01/Q02/Q05 con y sin índice (`hint({$natural:1})`): `totalDocsExamined`, tiempo, `IXSCAN` vs `COLLSCAN` → `docs/resultados/mongo_indices.md`. — 🟡 2026-11-27 · `scripts/mongo_experimento_indices.py` genera `mongo_indices.md` + `.csv`; falta ejecutarlo
-- [~] **B2.6** Export Mongo → HDFS — job Spark (conector Mongo) que escribe JSON Lines en `/smartcity/raw/mongo_exports/<coleccion>/fecha=…/` (alternativa: `mongoexport` + `hdfs dfs -put`). Conteos iguales a Mongo. **Lo necesita A4.2 (mr04).** — 🟡 2026-11-27 · `subir_crudos_hdfs.py --fuentes mongo --colecciones …` valida conteo Mongo = líneas en HDFS; `mongo/04_export.sh` corregido (credenciales, BD y misma ruta); falta ejecutarlo con `evento`
+- [x] **B2.5** Experimento de índices — `explain("executionStats")` de MG-Q01/Q02/Q05 con y sin índice (`hint({$natural:1})`): `totalDocsExamined`, tiempo, `IXSCAN` vs `COLLSCAN` → `docs/resultados/mongo_indices.md`. — ✅ 2026-11-27 · con 1.068.584 lecturas: MG-Q01 50 frente a 1.068.584 documentos examinados (533 ms → < 1 ms), MG-Q02 1.550 frente a 1.068.584 (×227); MG-Q05 hace COLLSCAN también con índice (filtro sin el prefijo de `ix_zona_emitida`, 1.190 alertas), explicado en el informe
+- [x] **B2.6** Export Mongo → HDFS — job Spark (conector Mongo) que escribe JSON Lines en `/smartcity/raw/mongo_exports/<coleccion>/fecha=…/` (alternativa: `mongoexport` + `hdfs dfs -put`). Conteos iguales a Mongo. **Lo necesita A4.2 (mr04).** — ✅ 2026-11-27 · `subir_crudos_hdfs.py --fuentes mongo` (vía `02_cargar_raw.sh`): lectura 1.068.584, evento 1.428, alerta 1.190, incidente 3.000 en `fecha=2026-11-27/`, conteo Mongo = líneas HDFS en las 4
 
 ### B3 — Spark: entorno y ETL (12–16 nov)
 
 - [x] **B3.1** Entorno Spark (D-04) — `spark/jobs/common.py` con `get_spark()` (master `spark://spark-master:7077`, `fs.defaultFS=hdfs://namenode:8020`, conector Mongo, JDBC PostgreSQL, `spark.sql.session.timeZone=UTC`) + `scripts/spark_submit.ps1 <job>` que ejecuta `docker exec smartcity_spark_master spark-submit /opt/smartcity/spark/jobs/<job>.py`. — ✅ 2026-11-27 · `common.py` (+ `rutas.py` compartido con el dashboard, `leer_mongo()`) y `spark_submit.ps1`; JDBC de PG queda para B3.4 · prueba de humo OK en el clúster: `SMARTCITY_B31_RANGE_COUNT=1000000`, paralelismo 2
   - **Aceptación:** job trivial `spark.range(1_000_000).count()` aparece en la UI :8080 ejecutado por los workers; lee un archivo de HDFS y una colección de Mongo.
-- [~] **B3.2** ETL ambiente — `spark/jobs/etl_ambiente.py` — 🟡 2026-11-26 · `etl_ambiente.py` (Mongo → Parquet, 4.389.705 filas, esquema explícito) + `etl_ambiente_hdfs.py` (raw OpenAQ/Open-Meteo/mongo_exports, dedup, `anio/mes`); falta join con maestros de PG (usa `sensores.csv`) y mover de `sandbox` a `/smartcity/curated/ambiente/`
+- [~] **B3.2** ETL ambiente — `spark/jobs/etl_ambiente.py` — 🟡 2026-11-27 · `etl_ambiente.py` (Mongo → Parquet, 4.380.538 filas, 15,5 MB, esquema explícito) → `/smartcity/curated/ambiente`; `etl_ambiente_hdfs.py` (raw OpenAQ/Open-Meteo/mongo_exports: 4.957.616 → 4.397.164 filas, 11,3 % descartado, dedup, `anio/mes`) → `/smartcity/curated/ambiente_hdfs`; rutas finales ✅ (`rutas.py`: `curated/` y `analytics/`, `sandbox/` solo para pruebas); falta el join con los maestros de PG (hoy usa `sensores.csv`)
   - raw OpenAQ + Open-Meteo + `mongo_exports/lecturas` (HDFS) → esquemas explícitos (`StructType`, nunca `inferSchema`) → limpieza (nulos, negativos, duplicados por sensor+timestamp, fuera de rango) → formato largo `zona, timestamp, id_sensor, tipo_metrica, valor, fuente` (igual al contrato) → join con zonas/sensores de PG (broadcast) → `/smartcity/curated/ambiente/` Parquet particionado por `anio/mes`.
   - **Aceptación:** ≥ 1 M filas procesadas; % descartado documentado; job usa los workers.
-- [x] **B3.3** ETL de `trafico`/`energia` sintéticos (solo si D-03 aprobado), mismo patrón. — ✅ 2026-11-27 · ejecutado en el clúster: 175.440 filas (0 % descartado) en `sandbox/etl_trafico_energia`
-- [~] **B3.4** Carga a PostgreSQL — `spark/jobs/carga_pg.py` (**depende de A2.4**) — 🟡 2026-11-27 · `carga_pg.py` cargó 175.440 filas de tráfico/energía en `medicion_horaria` (conteo Spark = PostgreSQL; re-ejecutar inserta 0: idempotente; refresca MV); borra las filas `prueba_pg`; faltan las tablas ambientales (esperan el ETL ambiental)
+- [x] **B3.3** ETL de `trafico`/`energia` sintéticos (solo si D-03 aprobado), mismo patrón. — ✅ 2026-11-27 · ejecutado en el clúster: 175.440 filas (0 % descartado) en `curated/trafico_energia`
+- [x] **B3.4** Carga a PostgreSQL — `spark/jobs/carga_pg.py` (**depende de A2.4**) — ✅ 2026-11-27 · `medicion_horaria` 2.456.672 ambientales + 175.440 tráfico/energía (2.632.112), `agg_ambiente_hora_zona` 87.720, `spark_kpi_zona` 35.104, `spark_anomalia` 104.137 (se reemplaza completa en cada carga); conteo Spark = PostgreSQL; idempotente; refresca las MV
   - Agregados por sensor-variable-hora → `medicion_horaria` (vía tabla staging + `INSERT … ON CONFLICT DO NOTHING`), por zona-hora → `agg_ambiente_hora_zona`; al final `CALL sp_refrescar_mv()`.
   - **Aceptación:** conteos Spark = PostgreSQL; re-ejecutar no duplica; `medicion_horaria` ≥ 100k filas (mínimo PG del enunciado).
 
@@ -308,10 +308,10 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   | SP-Q08 | Agrupamiento por categorías | `ROLLUP/CUBE` categoría-tipo-zona |
   | SP-Q09 | Comparación histórica entre años | `PIVOT` por año |
   | SP-Q10 | Reporte consolidado | KPIs por zona → `spark_kpi_zona` (PG) + `/smartcity/analytics/reporte/` |
-- [x] **B4.2** Los 8 análisis obligatorios — `spark/jobs/analitica.py` (DataFrame API), resultados en `/smartcity/analytics/<tipo>/` y tablas `spark_*` — ✅ 2026-11-27 · resultados en `sandbox/analitica/` + `hallazgos_spark.md`; IQR agregado a anomalías (faltan sus cifras); tablas `spark_*` dependen de B3.4
+- [x] **B4.2** Los 8 análisis obligatorios — `spark/jobs/analitica.py` (DataFrame API), resultados en `/smartcity/analytics/<tipo>/` y tablas `spark_*` — ✅ 2026-11-27 · 8/8 re-ejecutados con los datos completos, resultados en `analytics/` + `hallazgos_spark.md` actualizado; anomalías con IQR: 13.852 marcadas + 38.278 z-score + 81.933 IQR (29.926 en ambos); tablas `spark_*` cargadas (B3.4)
   - **Descriptivo** (sensores más activos, estadísticos por variable) · **Temporal** (evolución mensual de PM2.5, curva diaria de temperatura) · **Correlacional** (matriz PM2.5–PM10–temperatura–humedad–precipitación–viento) · **Predictivo** (MLlib `LinearRegression`/`GBTRegressor`: PM2.5 diario por zona según clima; reportar RMSE/R² y pronóstico) · **Espacial** (zonas más contaminadas, hotspots) · **Movilidad** (horas pico de contaminación por zona × día de semana; con tráfico real si D-03) · **Anomalías** (z-score + IQR por sensor) · **Comparación** (perfil por zona; **"Top 3 zonas con mayor incremento de PM2.5 en hora pico vs valle"** → gráfico Spark del dashboard).
   - **Aceptación:** `docs/resultados/hallazgos_spark.md` con números concretos.
-- [~] **B4.3** Optimización Spark (evidencia) — `docs/resultados/spark_optimizacion.md`: CSV vs Parquet (tiempo y bytes), *partition pruning* (`explain()` → `PartitionFilters`), broadcast vs sort-merge join, `cache()`, AQE on/off. Capturas de la Spark UI. — 🟡 2026-11-27 · programa + metodología listos; faltan cifras y capturas
+- [~] **B4.3** Optimización Spark (evidencia) — `docs/resultados/spark_optimizacion.md`: CSV vs Parquet (tiempo y bytes), *partition pruning* (`explain()` → `PartitionFilters`), broadcast vs sort-merge join, `cache()`, AQE on/off. Capturas de la Spark UI. — 🟡 2026-11-27 · ejecutado (3 repeticiones, 10 variantes, controles OK): broadcast −46 %, AQE −39 %, caché solo conviene con > 2 reutilizaciones, particiones y Parquet sin diferencia de tiempo pero con `PartitionFilters` y Parquet 17× más chico (9,5 MB → 573 KB); `spark_optimizacion.csv` + `spark_optimizacion_planes.txt`; faltan las capturas de la Spark UI (las toma el equipo)
 - [x] **B4.4** Documentar — `docs/tecnico/08_procesamiento.md`: flujo, cada job (entrada → transformaciones → salida), transformaciones vs acciones, evaluación perezosa, particionamiento, **por qué Spark y no PostgreSQL** para esto. — ✅ 2026-11-27
 
 ### B5 — Módulo `conectores_mongo_spark.py` (12–19 nov)
@@ -325,7 +325,7 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   - `incidentes(f)`, `eventos(f)`, `alertas(f)` → tablas para la UI.
   - `spark_top_zonas_pico()`, `spark_analisis(tipo)`, `spark_correlacion()`, `spark_pronostico()` → leídos de PG/HDFS, `fuente="Spark"`.
   - KPIs de Movilidad/Energía (`kpis_movilidad`, `kpis_energia`) si D-03.
-- [~] **B5.4** Pruebas — `tests/test_conectores_mongo_spark.py`: contrato respetado en todas las funciones; las 25 consultas corren sin error. — 🟡 2026-11-27 · 4 pruebas unitarias pasan; 29 de integración se omiten sin servicios, falta correrlas con Mongo/HDFS arriba
+- [x] **B5.4** Pruebas — `tests/test_conectores_mongo_spark.py`: contrato respetado en todas las funciones; las 25 consultas corren sin error. — ✅ 2026-11-27 · con Mongo/HDFS/Spark cargados: `pytest` 90 pasan, 0 omitidas
 
 ### R — Reto adicional: streaming
 
@@ -340,18 +340,19 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
 
 - [x] **D1** Esqueleto (puede empezar con DataFrames falsos que respeten el contrato): `st.set_page_config(layout="wide")`, barra lateral con `estado()` de las 4 tecnologías (caché 30 s); si un servicio cae, su sección muestra un aviso y el resto sigue. `st.cache_resource` para conexiones, `st.cache_data(ttl=600)` para consultas. — ✅ 2026-11-27 · `dashboard.py` + `dashboard_app/`; módulo A opcional, se integra solo al existir
 - [x] **D2** Componentes: `etiqueta_origen(fuente)` (**obligatoria en cada KPI, gráfico, tabla y mapa**), `tarjeta_kpi`, gráficos Plotly (serie, barras, dona, heatmap), tabla con búsqueda y paginación, mapa pydeck (`ScatterplotLayer` sensores + `HeatmapLayer` PM2.5). — ✅ 2026-11-27 · `dashboard_app/componentes.py`
-- [~] **D3** Filtros globales con `Filtros` de `comun.py`: obligatorios rango de fechas + perfil horario, zona(s), tipo de medición; recomendados sensor, tipo de evento, fuente, rango de valores. **Aceptación:** cambiar cada filtro cambia KPIs y gráficos (prueba documentada). — 🟡 2026-11-27 · todos los filtros implementados; falta la prueba documentada con datos reales
+- [x] **D3** Filtros globales con `Filtros` de `comun.py`: obligatorios rango de fechas + perfil horario, zona(s), tipo de medición; recomendados sensor, tipo de evento, fuente, rango de valores. **Aceptación:** cambiar cada filtro cambia KPIs y gráficos (prueba documentada). — ✅ 2026-11-27 · `scripts/prueba_filtros.py` → `docs/resultados/prueba_filtros.md`: 42/42 combinaciones cambian (PostgreSQL, MongoDB y Spark), 0 sin datos; encontró y se corrigieron 3 filtros ignorados
 - [x] **D4** Vista principal (una sola pantalla con secciones): KPIs Ambiente (B) + IoT (A: sensores; B: mediciones/alertas/ritmo) + Movilidad/Energía según D-03. — ✅ 2026-11-27 · KPIs del enunciado completos: Ambiente 5/5 (+CO₂), Energía 5/5, IoT 6/6 (sensores y activos/inactivos desde PostgreSQL), Movilidad 4/5 + «tiempo promedio de recorrido» = **sin dato** (decisión: ninguna fuente mide tiempos de viaje; justificar en el documento técnico)
 - [x] **D5** 4 gráficos: serie temporal (variable del filtro), comparativa por zonas (barras), distribución por tipo de sensor (dona), **resultado Spark** "Top 3 zonas con mayor incremento de PM2.5 en hora pico" (+ botón "Recalcular"). Tabla de detalle y mapa. — ✅ 2026-11-27 · el mapa usa posiciones de Mongo hasta que A publique `sensores(f)`
 - [x] **D6** Sección "Consultas por tecnología": selector PostgreSQL / MongoDB / HDFS / Spark → lista de `Consulta` → muestra título, descripción, **código** (`st.code`), widgets de parámetros, botón Ejecutar → tabla + gráfico + tiempo. Extras: EXPLAIN (PG), CRUD (Mongo), explorador/operaciones/fsck/MapReduce (HDFS), análisis (Spark). — ✅ 2026-11-27 · las 4 tecnologías: PostgreSQL (17 consultas + EXPLAIN ANALYZE), MongoDB (15 + CRUD), HDFS (HD-OPS + 5 MapReduce; panel con estado del clúster, explorador, fsck, subir/borrar en sandbox, lanzar jobs en YARN), Spark (10 + análisis)
-- [~] **D7** Página de comparación tecnológica (matriz con justificaciones, gráficos de experimentos, diagrama de arquitectura, respuestas cortas a las 7 preguntas del profesor). — 🟡 2026-11-27 · página base que muestra los CSV de `docs/resultados/` si existen
-- [ ] **D8** Pulido y QA: textos en español, formato numérico `1.234.567`, unidades, estados vacíos, Home < 5 s con caché; capturas en `docs/resultados/img/` para el documento.
+- [x] **D7** Página de comparación tecnológica (matriz con justificaciones, gráficos de experimentos, diagrama de arquitectura, respuestas cortas a las 7 preguntas del profesor). — ✅ 2026-11-27 · `pagina_comparacion.py`: matriz y respuestas leídas de los documentos (una sola versión), 7 gráficos E1–E7 con hallazgos calculados en vivo, diagramas (PNG o Mermaid), optimización por motor
+- [~] **D8** Pulido y QA: textos en español, formato numérico `1.234.567`, unidades, estados vacíos, Home < 5 s con caché; capturas en `docs/resultados/img/` para el documento. — 🟡 2026-11-27 · recorrido automático de todas las páginas con los datos completos sin errores; Home 0,5 s con caché (✅), 30 s la primera carga con la caché vacía; corregido el estado vacío de la tabla de detalle; faltan las capturas (las toma el equipo junto con el documento); caché del dashboard alargada a 12 h
 
 ---
 
 ## C — Comparación tecnológica: "la parte más importante" (AB, 18–20 nov)
 
-- [ ] **C1** Experimentos con el **mismo dato lógico** (lecturas zona-hora) en cada motor, a 2–3 escalas (100k / 1 M / 5 M si la máquina lo permite); calentamiento + 3 repeticiones, mediana → `benchmark_resultado` + `docs/resultados/benchmarks.csv`
+- [x] **C1** — ✅ 2026-11-27 · `scripts/benchmark_comparacion.py` + `spark/jobs/benchmark_spark.py`: E0–E7 a 100k / 1 M / 5 M, sumas de control idénticas en los 3 motores, mediana de 3 → `benchmark_resultado`, `docs/resultados/benchmarks.csv` y `benchmarks.md` (≈ 35 min). Hallazgo: Spark ×11 más lento que PG con 100k y más rápido con 5 M (E1, E3)
+  Experimentos con el **mismo dato lógico** (lecturas zona-hora) en cada motor, a 2–3 escalas (100k / 1 M / 5 M si la máquina lo permite); calentamiento + 3 repeticiones, mediana → `benchmark_resultado` + `docs/resultados/benchmarks.csv`
   | ID | Experimento | Hipótesis | Resp. |
   |---|---|---|---|
   | E1 | Agregación promedio por zona-hora: PG vs Mongo vs Spark | PG/Mongo ganan en pequeño; Spark escala mejor | AB |
@@ -361,21 +362,30 @@ A2/A4 y B2-consultas pueden avanzar en paralelo en cuanto haya datos cargados. E
   | E5 | Spark con 1 vs 2 workers / 1 vs 2 cores | el tiempo baja con más recursos | B |
   | E6 | HDFS con un DataNode caído (A3.4) | datos siguen disponibles | A |
   | E7 | Índices en PG (A2.5) y Mongo (B2.5) | órdenes de magnitud en consultas selectivas | AB |
-- [ ] **C2** Matriz comparativa — `docs/tecnico/04_justificacion_tecnologica.md`: la matriz del enunciado con **justificación por celda** apoyada en E1–E7 y matices donde no estemos de acuerdo (análisis crítico, 7 pts); tabla "tipo de dato del proyecto → tecnología → por qué → alternativa descartada"; sección "¿Qué pasa si los datos crecen ×100?".
-- [ ] **C3** Gráficos de los experimentos (Plotly para la UI + PNG para el documento).
+- [x] **C2** — ✅ 2026-11-27 · matriz con justificación por celda y 4 matices críticos, tabla dato → tecnología → alternativa descartada, ×100, conclusión
+  Matriz comparativa — `docs/tecnico/04_justificacion_tecnologica.md`: la matriz del enunciado con **justificación por celda** apoyada en E1–E7 y matices donde no estemos de acuerdo (análisis crítico, 7 pts); tabla "tipo de dato del proyecto → tecnología → por qué → alternativa descartada"; sección "¿Qué pasa si los datos crecen ×100?".
+- [x] **C3** Gráficos de los experimentos (Plotly para la UI + PNG para el documento). — ✅ 2026-11-27 · `dashboard_app/graficos_experimentos.py` (7 figuras en la UI) + `scripts/graficos_benchmarks.py` (PNG; corregidas las etiquetas de E1 en el eje logarítmico). Los PNG para el documento los genera el equipo
 
 ---
 
 ## E — Documentación, defensa y entrega (AB, 17–25 nov)
 
-- [ ] **E1** Documento técnico `docs/tecnico/00…10_*.md` con las 10 secciones del enunciado: descripción del problema · fuentes de datos · arquitectura · justificación tecnológica · modelo relacional (A) · modelo documental (B) · estrategia Big Data (A) · procesamiento (B) · resultados · conclusiones. Cada decisión justificada (tabla de Decisiones). Ensamblar en DOCX/PDF (pandoc o Word).
-- [ ] **E2** Diagramas finales en `docs/diagramas/`: arquitectura, flujo de datos entre las 4 tecnologías, E-R, modelo documental, estructura HDFS, despliegue Docker (PNG exportados).
-- [ ] **E3** Documento de atributos — `docs/atributos/ATRIBUTOS.md`: **AF** (costos open source en Docker vs servicios gestionados en la nube, decisiones económicas, gestión del tiempo y del equipo en parejas) y **AC** (tecnologías aprendidas y estrategias de aprendizaje); para cada uno: aplicación, impacto en la sociedad, retroalimentación — ≥ 1 párrafo cada punto, con la experiencia real de cada integrante.
-- [ ] **E4** Guion de demo — `docs/defensa/GUION_DEMO.md`: conexión PG → consulta PG → consulta Mongo → HDFS (comandos + fsck + nodo caído) / MapReduce → análisis Spark → dashboard; quién habla en cada paso, clics exactos, tiempos; checklist pre-demo (servicios arriba, datos cargados, caché caliente); plan B (`sql/demo/demo_defensa.sql`, capturas, video).
-- [ ] **E5** Preguntas y respuestas — `docs/defensa/PREGUNTAS_RESPUESTAS.md`: las 7 del enunciado (¿por qué PG?, ¿por qué Mongo?, ¿qué resuelve Hadoop?, ¿por qué Spark y no PG?, ¿×100 volumen?, ¿datos muy variables?, ¿valor de las 4?) + ≥ 15 previsibles (3FN, BRIN, archivos pequeños, gzip no divisible, NameNode como punto único de fallo, transformaciones vs acciones, ¿por qué no solo PG con JSONB?…) con **números de nuestros experimentos**. Cada pareja domina las preguntas de sus tecnologías y conoce las de la otra.
-- [ ] **E6** `README.md` final: descripción, arquitectura, requisitos, instalación desde cero, orden de ejecución de los scripts, URLs, estructura del repo, créditos y licencias de las fuentes.
-- [ ] **E7** QA final: clonar en otra carpeta y correr todo desde cero siguiendo el README; verificar volúmenes (PG ≥ 100k, Mongo ≥ 500k, Spark ≥ 1 M, total y tamaño); recorrer cada consulta en la UI sin errores; ensayo cronometrado de la defensa.
-- [ ] **E8** Entrega: documento técnico, documento de atributos, código (zip sin `data/`, `.venv`, `.env`, o enlace al repo), etiqueta git `v1.0-entrega`.
+- [~] **E1** — 🟡 2026-11-27 · las 10 secciones en `docs/tecnico/` con las cifras de la corrida completa; el documento final lo arma el equipo
+  Documento técnico `docs/tecnico/00…10_*.md` con las 10 secciones del enunciado: descripción del problema · fuentes de datos · arquitectura · justificación tecnológica · modelo relacional (A) · modelo documental (B) · estrategia Big Data (A) · procesamiento (B) · resultados · conclusiones. Cada decisión justificada (tabla de Decisiones). Ensamblar en DOCX/PDF (pandoc o Word).
+- [x] **E2** — ✅ 2026-11-27 · Mermaid: `arquitectura.md`, `flujo_datos.md`, `estructura_hdfs.md`, `despliegue_docker.md` (+ E-R, documental y flujo Spark) → 7 PNG en `docs/diagramas/img/` con `scripts/exportar_diagramas.py`
+  Diagramas finales en `docs/diagramas/`: arquitectura, flujo de datos entre las 4 tecnologías, E-R, modelo documental, estructura HDFS, despliegue Docker (PNG exportados).
+- [x] **E3** — ✅ 2026-11-27 · `docs/atributos/ATRIBUTOS.md` (AF con costos Docker vs nube, decisiones económicas, gestión; AC con estrategias de aprendizaje; impacto y retroalimentación) + `DICCIONARIO_DATOS.md` (atributos, tipos, fuentes, restricciones; generado de la base); sin reflexiones individuales (decisión del equipo)
+  Documento de atributos — `docs/atributos/ATRIBUTOS.md`: **AF** (costos open source en Docker vs servicios gestionados en la nube, decisiones económicas, gestión del tiempo y del equipo en parejas) y **AC** (tecnologías aprendidas y estrategias de aprendizaje); para cada uno: aplicación, impacto en la sociedad, retroalimentación — ≥ 1 párrafo cada punto, con la experiencia real de cada integrante.
+- [ ] **E4** — a cargo del equipo (2026-11-27: se retiró el borrador `docs/defensa/GUION_DEMO.md`)
+  Guion de demo — `docs/defensa/GUION_DEMO.md`: conexión PG → consulta PG → consulta Mongo → HDFS (comandos + fsck + nodo caído) / MapReduce → análisis Spark → dashboard; quién habla en cada paso, clics exactos, tiempos; checklist pre-demo (servicios arriba, datos cargados, caché caliente); plan B (`sql/demo/demo_defensa.sql`, capturas, video).
+- [ ] **E5** — a cargo del equipo (2026-11-27: se retiró el borrador `docs/defensa/PREGUNTAS_RESPUESTAS.md`; la pestaña «Preguntas del profesor» de la página de comparación lo lee si vuelve a existir)
+  Preguntas y respuestas — `docs/defensa/PREGUNTAS_RESPUESTAS.md`: las 7 del enunciado (¿por qué PG?, ¿por qué Mongo?, ¿qué resuelve Hadoop?, ¿por qué Spark y no PG?, ¿×100 volumen?, ¿datos muy variables?, ¿valor de las 4?) + ≥ 15 previsibles (3FN, BRIN, archivos pequeños, gzip no divisible, NameNode como punto único de fallo, transformaciones vs acciones, ¿por qué no solo PG con JSONB?…) con **números de nuestros experimentos**. Cada pareja domina las preguntas de sus tecnologías y conoce las de la otra.
+- [x] **E6** — ✅ 2026-11-27 · instalación desde cero en 7 pasos, servicios, estructura, documentación y licencias de las fuentes
+  `README.md` final: descripción, arquitectura, requisitos, instalación desde cero, orden de ejecución de los scripts, URLs, estructura del repo, créditos y licencias de las fuentes.
+- [~] **E7** — 🟡 2026-11-27 · `docs/resultados/qa_final.md`: clon + venv limpio OK; instalación completa con datos siguiendo el README (descarga sin clave → Mongo → HDFS → Spark → PostgreSQL → MapReduce → experimentos); `pytest` sin omitidas; filtros 42/42; UI sin errores; el ensayo cronometrado lo hace el equipo
+  QA final: clonar en otra carpeta y correr todo desde cero siguiendo el README; verificar volúmenes (PG ≥ 100k, Mongo ≥ 500k, Spark ≥ 1 M, total y tamaño); recorrer cada consulta en la UI sin errores; ensayo cronometrado de la defensa.
+- [~] **E8** — 🟡 2026-11-27 · `scripts/empaquetar_entrega.py` (zip con `git ls-files`, sin datos ni `.env`); falta el commit final y la etiqueta `v1.0-entrega`
+  Entrega: documento técnico, documento de atributos, código (zip sin `data/`, `.venv`, `.env`, o enlace al repo), etiqueta git `v1.0-entrega`.
 
 ---
 
@@ -385,35 +395,35 @@ Cobertura del enunciado (`docs/CE3101_Enunciado_Proyecto_II_Semestre_2026.pdf`) 
 
 | Requisito del enunciado | Estado | Dónde / qué falta |
 |---|---|---|
-| ≥ 2 fuentes de datos, documentar fuente, licencia y descarga | 🟡 | OpenAQ + Open-Meteo ✓; falta `FUENTES.md` (F2.3) |
-| Volumen ≥ 100 MB y PG ≥ 100k / Mongo ≥ 500k / Spark ≥ 1 M | 🟡 | Mongo 1,07 M y Spark 4,39 M (referencia); PG se alcanza con B3.4 |
+| ≥ 2 fuentes de datos, documentar fuente, licencia y descarga | ✅ | OpenAQ + Open-Meteo; `FUENTES.md` con licencias y comandos; `perfil_fuentes.md` con las cifras medidas |
+| Volumen ≥ 100 MB y PG ≥ 100k / Mongo ≥ 500k / Spark ≥ 1 M | ✅ | PG 2,63 M · Mongo 1,07 M · Spark 4,38 M; ≈ 450 MB de crudos en HDFS (medido) |
 | PG: subconsultas, CTE, ventanas, fechas, índices, vistas, MV, funciones, particiones | ✅ | A1–A2 (17 consultas, CTE recursiva en PG-P07, particiones mensuales, BRIN, 2 MV, 4 funciones, 1 procedimiento) |
 | PG: preguntas de ejemplo (zona con más vehículos, hora de mayor congestión) | ✅ | PG-P05 y PG-P06 sobre el tráfico cargado por Spark en `medicion_horaria` |
 | Mongo: CRUD, filtros, operadores, proyecciones, orden, Aggregation Framework, índices | ✅ | B1–B2 |
-| Hadoop: HDFS (mkdir/put/ls/cat/get/rm), bloques, replicación, tolerancia, MapReduce **o Hive** | 🟡 | A3–A4 hechos (demo, tolerancia medida, 5 jobs en YARN); faltan corridas con los datos completos |
-| Spark: 8 análisis + 10 consultas, DataFrames + SQL | ✅ | B4.1–B4.2 (cifras de IQR y B4.3 pendientes de ejecución) |
-| Integración: Spark → PostgreSQL; sensores → Mongo → HDFS → Spark | 🟡 | Spark → PostgreSQL funcionando (175.440 filas); Mongo → HDFS esperando los datos |
-| Dashboard: vista única, KPIs de 4 grupos, 4 gráficos (1 de Spark), filtros, tabla, mapa, etiqueta de origen | ✅ | «Tiempo promedio de recorrido» = sin dato (decidido); falta la prueba documentada de filtros (D3) con datos reales |
+| Hadoop: HDFS (mkdir/put/ls/cat/get/rm), bloques, replicación, tolerancia, MapReduce **o Hive** | ✅ | A3–A4 (demo, tolerancia medida, 5 jobs en YARN sobre el export real) |
+| Spark: 8 análisis + 10 consultas, DataFrames + SQL | ✅ | B4.1–B4.3 ejecutados con los datos completos |
+| Integración: Spark → PostgreSQL; sensores → Mongo → HDFS → Spark | ✅ | Mongo → HDFS (conteos iguales) → Spark → PostgreSQL (2.632.112 filas en `medicion_horaria`) |
+| Dashboard: vista única, KPIs de 4 grupos, 4 gráficos (1 de Spark), filtros, tabla, mapa, etiqueta de origen | ✅ | «Tiempo promedio de recorrido» = sin dato (decidido); prueba de filtros D3: 42/42 con datos reales |
 | Dashboard: seleccionar tecnología y ejecutar sus consultas obligatorias | ✅ | PostgreSQL, MongoDB, HDFS/MapReduce y Spark |
-| Matriz comparativa justificada con experimentos | ⚪ | C1–C3 |
-| Documento técnico (10 secciones) y diagramas | 🟡 | Hechas 05, 06, 07 y 08 + E-R y modelo documental; faltan 01–04, 09, 10 (E1–E2) |
-| Documento de atributos (AF, AC) | ⚪ | E3 |
-| Defensa demostrativa en vivo y preguntas del profesor | ⚪ | E4–E5 |
+| Matriz comparativa justificada con experimentos | ✅ | C1–C3: E0–E7 a 3 escalas + matriz con justificación por celda + gráficos PNG |
+| Documento técnico (10 secciones) y diagramas | 🟡 | Las 10 secciones y los 7 diagramas PNG listos; el documento final lo arma el equipo (E1) |
+| Documento de atributos (AF, AC) | ✅ | E3 (sin reflexiones individuales, por decisión del equipo) |
+| Defensa demostrativa en vivo y preguntas del profesor | 🟡 | Guion, preguntas y ensayo a cargo del equipo (E4, E5, E7) |
 | Reto adicional (opcional): streaming con alertas por umbral | ✅ | R1 |
 
 ---
 
 ## Checklist de la rúbrica (verificar antes de entregar)
 
-- [ ] (7) Matriz comparativa con justificación por celda y evidencia experimental — C
+- [x] (7) Matriz comparativa con justificación por celda y evidencia experimental — C
 - [ ] (14) Dashboard: vista principal, todos los KPIs, 4 gráficos (uno de Spark), filtros, tabla, mapa, etiqueta de origen en todo — D
-- [ ] (15) Las 10 consultas de PG, Mongo y Spark + las 5 de Hadoop ejecutables desde la UI — A5, B5, D6
+- [x] (15) Las 10 consultas de PG, Mongo y Spark + las 5 de Hadoop ejecutables desde la UI — A5, B5, D6
 - [ ] (10) Documento técnico con las 10 secciones y diagramas — E1, E2
 - [ ] (2) Código limpio, modular, documentado y funcional — todos
-- [ ] (7) PostgreSQL: CTEs (incl. recursiva), funciones de ventana, vistas, MV, particiones, índices justificados — A1, A2
-- [ ] (7) MongoDB: modelado justificado y agregaciones avanzadas (`$facet`, `$bucket`, `$setWindowFields`, `$lookup`, `$geoNear`) — B1, B2
-- [ ] (7) HDFS: estructura, comandos, bloques/réplicas, tolerancia a fallos — A3
+- [x] (7) PostgreSQL: CTEs (incl. recursiva), funciones de ventana, vistas, MV, particiones, índices justificados — A1, A2
+- [x] (7) MongoDB: modelado justificado y agregaciones avanzadas (`$facet`, `$bucket`, `$setWindowFields`, `$lookup`, `$geoNear`) — B1, B2
+- [x] (7) HDFS: estructura, comandos, bloques/réplicas, tolerancia a fallos — A3
 - [ ] (7) Spark: DataFrames + Spark SQL distribuidos, ETL, 8 análisis, optimizaciones — B3, B4
 - [ ] (7) Interfaz agradable con KPIs y filtros funcionales — D
 - [ ] (15) Defensa: guion, Q&A con números, plan B — E4, E5
-- [ ] (2) Documento de atributos AF y AC — E3
+- [x] (2) Documento de atributos AF y AC — E3

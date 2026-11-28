@@ -35,10 +35,13 @@ flowchart LR
     OUT --> DASH[dashboard.py<br/>conectores_mongo_spark]
     OUT2 --> DASH
     CUR3 --> DASH
-    OUT -. B3.4 pendiente de A2.4 .-> PG[(PostgreSQL spark_*)]
+    OUT --> CPG[carga_pg.py<br/>B3.4]
+    OUT2 --> CPG
+    CUR3 --> CPG
+    CPG --> PG[(PostgreSQL medicion_horaria · spark_*)]
 ```
 
-Las rutas HDFS están centralizadas en [spark/jobs/rutas.py](../../spark/jobs/rutas.py). Por ahora apuntan a `/smartcity/sandbox/…`; el destino final (`/smartcity/curated`, `/smartcity/analytics`) se cambia solo en ese archivo cuando el equipo lo acuerde.
+Las rutas HDFS están centralizadas en [spark/jobs/rutas.py](../../spark/jobs/rutas.py): los ETL escriben en `/smartcity/curated/` (`ambiente`, `ambiente_hdfs`, `trafico_energia`) y los análisis y consultas en `/smartcity/analytics/`; `sandbox/` queda para pruebas, benchmarks y el experimento B4.3. Todos los jobs crean la sesión con `get_spark()` ([common.py](../../spark/jobs/common.py)), que fija `dfs.replication = 2` como el resto del clúster (D-05).
 
 ## 8.2 Ejecución (D-04)
 
@@ -54,7 +57,7 @@ Los jobs se ejecutan con `spark-submit` **dentro** de `smartcity_spark_master` (
 
 | Job | Entrada | Transformaciones principales | Salida |
 |---|---|---|---|
-| `etl_ambiente.py` (B3.2) | Mongo `lectura` (1.068.777 docs) | Esquema explícito (`StructType`); `explode` de `mediciones` a formato largo; filtros de zona, nulos, NaN, rango por variable (temperatura −60…60, humedad 0…100, resto ≥ 0) y `calidad_dato.valido`; `dropDuplicates(id_sensor, timestamp, tipo_metrica)` | Parquet `anio/mes`, 4.389.705 filas |
+| `etl_ambiente.py` (B3.2) | Mongo `lectura` (1.068.584 docs) | Esquema explícito (`StructType`); `explode` de `mediciones` a formato largo; filtros de zona, nulos, NaN, rango por variable (temperatura −60…60, humedad 0…100, resto ≥ 0) y `calidad_dato.valido`; `dropDuplicates(id_sensor, timestamp, tipo_metrica)` | Parquet `anio/mes`, 4.380.538 filas |
 | `etl_ambiente_hdfs.py` (B3.2) | Crudos OpenAQ/Open-Meteo + export JSONL de Mongo en HDFS | Mismas reglas; catálogo de sensores en *broadcast* (integridad referencial sensor-zona); deduplicación con `row_number()` que prioriza el dato crudo externo sobre la réplica en Mongo | Parquet `anio/mes` (exige ≥ 1 M filas) |
 | `etl_trafico_energia.py` (B3.3) | `raw/trafico`, `raw/energia` (simulados) | Esquema explícito; validación de rangos; formato largo del contrato (`tipo_metrica` = trafico \| energia) | Parquet `anio/mes` |
 | `ejecutar_consultas.py` (B4.1) | Parquet curado (+ Mongo para SP-Q02/Q07) | 10 consultas Spark SQL sobre vistas temporales: `GROUP BY`, JOIN, `date_trunc`, `corr()`, `RANK()`, `LAG()`, z-score con ventanas, `ROLLUP/CUBE`, `PIVOT` | Resultado de cada consulta en `consultas_spark/<ID>`; SP-Q10 en `reporte_spark_q10` |

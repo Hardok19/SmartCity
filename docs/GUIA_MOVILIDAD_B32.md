@@ -7,8 +7,8 @@
 Este paquete no modifica datos de MongoDB ni las rutas HDFS originales `etl_ambiente_completa` o `analitica/movilidad_proxy_*`.
 
 - **Movilidad:** genera cinco contadores de tráfico **simulados** (T-001 a T-005), uno por zona. Los datos no provienen de Transport for London ni de sensores físicos. El patrón de hora pico es un **supuesto del generador**, no un hallazgo sobre el tráfico real. El análisis Spark calcula las horas pico a partir de los valores generados y las cruza con PM2.5 y precipitación por zona/hora.
-- **B3.2 raw:** copia los originales OpenAQ, Open-Meteo y una exportación de `lectura` de MongoDB a `/smartcity/raw`. Un nuevo ETL Spark consume esos archivos, aplica validación, deduplica y crea Parquet particionado por `anio/mes` en **sandbox**. Usa temporalmente el catálogo CSV de sensores.
-- **Pendiente de la pareja A:** la sustitución del catálogo CSV por un JOIN sobre el esquema definitivo de **PostgreSQL**, y el acuerdo sobre la ruta productiva `/smartcity/curated/ambiente/`. No afirmar que B3.2 completo (incluido PostgreSQL) está validado antes de ello.
+- **B3.2 raw:** copia los originales OpenAQ, Open-Meteo y una exportación de `lectura` de MongoDB a `/smartcity/raw`. Un nuevo ETL Spark consume esos archivos, aplica validación, deduplica y crea Parquet particionado por `anio/mes` en `/smartcity/curated/ambiente_hdfs`. Usa temporalmente el catálogo CSV de sensores.
+- **Pendiente:** la sustitución del catálogo CSV por un JOIN sobre el esquema definitivo de **PostgreSQL**. Las rutas productivas (`/smartcity/curated/`, `/smartcity/analytics/`) ya están en uso desde el 2026-11-27 (`spark/jobs/rutas.py`). No afirmar que B3.2 completo (incluido PostgreSQL) está validado antes de ello.
 
 ## 1. Preparación desde la raíz del repositorio
 
@@ -116,7 +116,7 @@ grep -E 'SMARTCITY_B32_' b32_hdfs.log
 Entradas: raw CSV/JSON/JSONL. Esquemas `StructType` definidos en código; filtros por rangos y calidad; unión con maestros CSV; prioridad al dato externo directo cuando coincide con la réplica de Mongo; deduplicación por `id_sensor + timestamp + tipo_metrica`. Escribe y relee:
 
 ```
-hdfs://namenode:8020/smartcity/sandbox/etl_ambiente_hdfs_integral
+hdfs://namenode:8020/smartcity/curated/ambiente_hdfs
 ```
 
 Etiquetas `fuente_raw` identifican dónde se obtuvo cada fila, evitando contar dos veces mediciones externas presentes también en Mongo. El script imprime entrada, descartes, porcentaje y conteo Parquet. El umbral de aceptación es **al menos 1 millón de mediciones**. Los conteos pueden diferir de la versión Mongo-only porque el conjunto y las prioridades de deduplicación son distintos.
@@ -145,10 +145,10 @@ grep -E 'SMARTCITY_(MOV_TRAFICO_|B42_MOVILIDAD_)' movilidad_trafico.log
 Rutas HDFS nuevas:
 
 ```
-/smartcity/sandbox/analitica/movilidad_trafico_perfil_horario
-/smartcity/sandbox/analitica/movilidad_trafico_horas_pico
-/smartcity/sandbox/analitica/movilidad_trafico_correlacion_pm25
-/smartcity/sandbox/analitica/movilidad_trafico_cruce_meteo
+/smartcity/analytics/movilidad_trafico_perfil_horario
+/smartcity/analytics/movilidad_trafico_horas_pico
+/smartcity/analytics/movilidad_trafico_correlacion_pm25
+/smartcity/analytics/movilidad_trafico_cruce_meteo
 ```
 
 Esperar `SMARTCITY_MOV_TRAFICO_ENTRADA=87720` con el período completo y **10 filas de horas pico** (5 zonas × laborables/fin de semana). Correlaciones PM2.5 o lluvia requieren que haya horas coincidentes; nunca interpretar una correlación como causalidad ni tráfico simulado como una medición real.
@@ -157,19 +157,19 @@ Esperar `SMARTCITY_MOV_TRAFICO_ENTRADA=87720` con el período completo y **10 fi
 
 ```bash
 MSYS_NO_PATHCONV=1 docker exec smartcity_namenode \
-  hadoop fs -ls /smartcity/sandbox/etl_ambiente_completa
+  hadoop fs -ls /smartcity/curated/ambiente
 
 MSYS_NO_PATHCONV=1 docker exec smartcity_namenode \
-  hadoop fs -ls /smartcity/sandbox/etl_ambiente_hdfs_integral
+  hadoop fs -ls /smartcity/curated/ambiente_hdfs
 
 MSYS_NO_PATHCONV=1 docker exec smartcity_namenode \
-  hadoop fs -ls /smartcity/sandbox/analitica/movilidad_trafico_horas_pico
+  hadoop fs -ls /smartcity/analytics/movilidad_trafico_horas_pico
 ```
 
-No ejecutar `docker compose down -v`. Todos los resultados de este paquete se mantienen en rutas **sandbox**.
+No ejecutar `docker compose down -v`. Los resultados de este paquete quedan en `/smartcity/curated/` y `/smartcity/analytics/` (`spark/jobs/rutas.py`).
 
 ## Validación pendiente
 
 Este paquete se ha verificado con compilación sintáctica de Python y generación determinista de CSV; **no se ejecutó Spark/Docker real en el entorno donde se preparó**. Por ello, el funcionamiento completo se confirma con las salidas que devuelva tu clúster.
 
-Para cerrar B3.2 conforme al TODO original falta el JOIN con zonas/sensores de PostgreSQL, junto con la integración de la carpeta productiva `/smartcity/curated/ambiente/` **coordinada** con la pareja A. No modificar su esquema ni mover datos productivos unilateralmente.
+Para cerrar B3.2 conforme al TODO original falta el JOIN con zonas/sensores de PostgreSQL. Las rutas productivas `/smartcity/curated/` y `/smartcity/analytics/` ya están en uso (2026-11-27). No modificar el esquema de PostgreSQL de la pareja A unilateralmente.

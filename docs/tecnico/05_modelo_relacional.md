@@ -41,7 +41,7 @@ Diagrama E-R: [docs/diagramas/er_postgres.md](../diagramas/er_postgres.md).
 |---|---|
 | `v_sensor_detalle` | Sensor + tipo + categoría + zona + organismo (PG-Q09, mapa del dashboard) |
 | `mv_actividad_sensor` | Mediciones, primera y última lectura por sensor (PG-Q08, `fn_sensores_sin_actividad`) |
-| `mv_kpi_diario_zona` | PM2.5, temperatura y humedad diarios por zona (PG-Q10, PG-P04, PG-P07): ×165 más rápido que la consulta en vivo (A2.5) |
+| `mv_kpi_diario_zona` | PM2.5, temperatura y humedad diarios por zona (PG-Q10, PG-P04, PG-P07): 0,47 ms frente a 1.854 ms de la consulta en vivo (×3.900, A2.5) |
 | `fn_sensores_por_organismo()` | Conteo por organismo, incluidos los que no tienen sensores |
 | `fn_sensores_sin_actividad(desde)` | Distingue «nunca envió datos» de «dejó de enviar» |
 | `fn_kpi_ambiente(desde, hasta, zona)` | KPI de ambiente por período (PG-Q10) |

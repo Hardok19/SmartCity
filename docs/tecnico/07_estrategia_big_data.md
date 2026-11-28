@@ -23,7 +23,13 @@ Creada con [hadoop/hdfs/01_estructura.sh](../../hadoop/hdfs/01_estructura.sh):
 │   ├── trafico/  energia/       series simuladas (D-03)
 │   └── mongo_exports/<coleccion>/fecha=AAAA-MM-DD/<coleccion>.jsonl   (export de MongoDB, B2.6)
 ├── curated/                     Parquet limpio particionado anio=/mes= (ETL Spark)
-├── analytics/                   resultados de análisis (Spark) para el dashboard
+│   ├── ambiente/                desde MongoDB (etl_ambiente.py): lo leen análisis, consultas y carga_pg
+│   ├── ambiente_hdfs/           desde los crudos de raw/ (etl_ambiente_hdfs.py)
+│   └── trafico_energia/         tráfico y energía simulados (etl_trafico_energia.py)
+├── analytics/                   resultados de Spark para el dashboard
+│   ├── descriptivo/ … comparativo_*/   una carpeta por salida de los 8 análisis (analitica.py)
+│   ├── consultas_spark/SP-Qxx/  resultado de cada consulta Spark SQL
+│   └── reporte_q10/             reporte consolidado SP-Q10
 ├── mapreduce/mr01 … mr05/       salidas de los jobs MapReduce
 ├── streaming/entrada|alertas|checkpoints/   reto adicional (Structured Streaming)
 └── sandbox/                     pruebas y operaciones de la UI (único lugar donde la UI escribe o borra)
@@ -31,7 +37,7 @@ Creada con [hadoop/hdfs/01_estructura.sh](../../hadoop/hdfs/01_estructura.sh):
 
 Decisiones:
 
-- **raw inmutable + capas.** Si una regla de limpieza cambia, se reprocesa desde `raw` sin volver a descargar. Por el momento los resultados de Spark están en `sandbox/` (ver `spark/jobs/rutas.py`); mover `curated/` y `analytics/` a su lugar definitivo es un cambio de una línea.
+- **raw inmutable + capas.** Si una regla de limpieza cambia, se reprocesa desde `raw` sin volver a descargar. Según [spark/jobs/rutas.py](../../spark/jobs/rutas.py), los ETL escriben en `/smartcity/curated/` (`ambiente`, `ambiente_hdfs`, `trafico_energia`) y los análisis y consultas en `/smartcity/analytics/`; `sandbox/` queda para pruebas, benchmarks y el experimento B4.3. Spark escribe con la misma réplica ×2 que el resto del clúster (`get_spark()` fija `dfs.replication = 2`).
 - **Particiones estilo Hive** (`fecha=…/`, `anio=/mes=`): Spark y MapReduce leen solo las carpetas que piden (*partition pruning*).
 - **Pocos archivos grandes (problema de archivos pequeños).** OpenAQ y Open-Meteo se guardan por estación o zona y **año**, no por día. El NameNode mantiene en memoria unos 150 bytes por cada archivo y bloque, y MapReduce lanza al menos una tarea por archivo: 10 años × 365 días × 40 sensores = 146.000 archivos diminutos saturarían el NameNode y crearían 146.000 tareas de map.
 - **CSV/JSON sin gzip.** gzip no es divisible: un `.gz` de 1 GB lo procesa una sola tarea. Para los datos curados se usa Parquet + Snappy, que es divisible y columnar.
@@ -80,9 +86,9 @@ Cinco jobs de Hadoop Streaming en Python ([hadoop/mapreduce/](../../hadoop/mapre
 
 | Componente | Hoy | ×100 | Qué cambia |
 |---|---|---|---|
-| HDFS raw | ≈ 400 MB | ≈ 40 GB (≈ 80 GB con 2 réplicas) | Agregar DataNodes. El NameNode sigue holgado si se mantienen archivos grandes (≈ 320 bloques de 128 MB) |
+| HDFS raw | 448 MB | ≈ 45 GB (≈ 90 GB con 2 réplicas) | Agregar DataNodes. El NameNode sigue holgado si se mantienen archivos grandes (≈ 360 bloques de 128 MB) |
 | MapReduce / Spark | segundos–minutos | El tiempo crece casi lineal **por nodo** | Más NodeManagers/workers: se reparten los bloques. Parquet particionado lee solo lo necesario |
 | MongoDB | 1 M documentos | 100 M | *Sharding* por `sensor_id` o zona; TTL o archivado del histórico en HDFS |
-| PostgreSQL | 175 mil filas horarias | 17 M | Particiones mensuales (ya están) + BRIN; se guardan agregados, no lecturas crudas |
+| PostgreSQL | 2,6 M filas horarias (427 MB) | 263 M (≈ 43 GB) | Particiones mensuales (ya están) + BRIN; se guardan agregados, no lecturas crudas |
 
 Cada tecnología se queda con lo que mejor sabe hacer: el histórico masivo crudo vive en HDFS y se procesa con Spark, y PostgreSQL y MongoDB guardan solo lo que se consulta en línea.

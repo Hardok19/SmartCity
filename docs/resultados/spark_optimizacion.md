@@ -1,8 +1,8 @@
 # Optimización de Spark (B4.3)
 
-Programa: [spark/jobs/optimizar_spark.py](../../spark/jobs/optimizar_spark.py). Lee el Parquet curado (`RUTAS["ambiente"]`, 4.389.705 filas en la ejecución de referencia) y escribe solo en `/smartcity/sandbox/optimizacion_b43/`.
+Programa: [spark/jobs/optimizar_spark.py](../../spark/jobs/optimizar_spark.py). Lee el Parquet curado (`RUTAS["ambiente"]`, 4.380.538 filas en la ejecución del 2026-11-27) y escribe solo en `/smartcity/sandbox/optimizacion_b43/`.
 
-> **Estado:** el programa está listo; **faltan las cifras** de una ejecución en el clúster. Las tablas de la §3 se completan con las líneas `B43_MEDIANA` y `B43_DIFERENCIA` de la salida. Ninguna mejora se da por supuesta: se reporta lo que se mida.
+> **Estado:** ejecutado el 2026-11-27 con `--pruebas todas --repeticiones 3` (10 variantes, controles de resultado OK). Mediciones por repetición en [spark_optimizacion.csv](spark_optimizacion.csv); planes completos (`explain(mode="formatted")`) en [spark_optimizacion_planes.txt](spark_optimizacion_planes.txt). Ninguna mejora se da por supuesta: se reporta lo que se midió.
 
 ## 1. Cómo ejecutarlo
 
@@ -36,15 +36,23 @@ Todas las comparaciones cumplen tres condiciones: (1) las dos variantes devuelve
 
 Configuración: 1 worker, 2 *cores*, 2 GB (`docker-compose.yml`); `spark.sql.shuffle.partitions=8` salvo en la prueba AQE.
 
-| Prueba | Base (s, mediana) | Optimizada (s, mediana) | Diferencia (%) | Evidencia en el plan |
+| Prueba | Base (s, mediana) | Optimizada (s, mediana) | Diferencia | Evidencia en el plan |
 |---|---:|---:|---:|---|
-| Particiones | _pendiente_ | _pendiente_ | _pendiente_ | _pendiente_ |
-| JOIN broadcast | _pendiente_ | _pendiente_ | _pendiente_ | _pendiente_ |
-| AQE | _pendiente_ | _pendiente_ | _pendiente_ | _pendiente_ |
-| Caché (solo reutilización / con materialización) | _pendiente_ | _pendiente_ | _pendiente_ | _pendiente_ |
-| CSV → Parquet | _pendiente_ | _pendiente_ | _pendiente_ | _pendiente_ |
+| Particiones (2.368.576 filas de 2024) | 0,079 (`year(timestamp)`) | 0,080 (`anio = 2024`) | −1 % (igual) | Solo la optimizada tiene `PartitionFilters: [isnotnull(anio), (anio = 2024)]`; la base lee las 24 particiones y filtra después |
+| JOIN broadcast (320.994 filas PM2.5 2024 × catálogo) | 0,226 (sort-merge) | 0,122 (`broadcast`) | **46 % menos** | `SortMergeJoin` con dos `Exchange` frente a `BroadcastHashJoin` sin *shuffle* del lado grande |
+| AQE (32 particiones de *shuffle*) | 1,047 (desactivado) | 0,635 (activado) | **39 % menos** | `AdaptiveSparkPlan` solo en la variante con AQE; el `Exchange hashpartitioning(zona, 32)` se une en tiempo de ejecución (`isFinalPlan=false` en el `explain` previo; la unión se ve en la Spark UI) |
+| Caché, solo reutilización | 0,606 (2 agregaciones) | 0,275 | 55 % menos | `InMemoryRelation` + `InMemoryTableScan` |
+| Caché, contando materializar (0,921 s) | 1,212 | 1,508 | **24 % más** | Con solo 2 reutilizaciones no se paga la materialización |
+| CSV → Parquet (misma muestra) | 0,040 | 0,041 | igual | `FileScan csv` frente a `FileScan parquet` con `ReadSchema: struct<zona, valor>` (lectura columnar) |
 
-Tamaño en disco de la misma muestra (`hdfs dfs -du -s -h …/datos_prueba_csv …/datos_prueba_parquet`): CSV _pendiente_ · Parquet _pendiente_.
+Tamaño en disco de la misma muestra (`hdfs dfs -du -s -h …/datos_prueba_csv …/datos_prueba_parquet`): **CSV 9,5 MB ·
+Parquet 573 KB** (17 veces menos; con la réplica de HDFS, 28,5 MB frente a 1,7 MB).
+
+Variación entre repeticiones: la primera repetición de cada prueba incluye leer los archivos desde disco (p. ej.
+particiones: 3,42 s con `year(timestamp)` frente a 0,67 s con `anio`, ×5); en las siguientes los bloques ya están en
+la caché del sistema operativo y las dos variantes tardan lo mismo. Por eso la mediana de particiones y de CSV es casi
+igual y el beneficio real está en lo que **no** se lee: 12 de 24 particiones y 2 de 4 columnas. En AQE y caché las
+diferencias son de décimas de segundo y varían entre repeticiones (AQE activado 0,48–0,71 s; desactivado 0,68–1,21 s).
 
 ## 4. Cómo interpretar los resultados
 

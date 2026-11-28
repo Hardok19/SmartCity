@@ -3,18 +3,21 @@
 
 Entradas: raw OpenAQ CSV + raw Open-Meteo JSON + export Mongo lectura JSONL.
 Esquemas explicitos, validacion, catalogo maestro CSV, deduplicacion entre
-raw y Mongo. Parquet largo con particiones anio/mes en HDFS sandbox.
+raw y Mongo. Parquet largo con particiones anio/mes en RUTAS["ambiente_hdfs"]
+(/smartcity/curated/ambiente_hdfs); nunca sobrescribe RUTAS["ambiente"] (ETL desde Mongo).
 
 Nota: JOIN definitivo por JDBC con maestros PostgreSQL queda pendiente hasta
 que la pareja A publique sus tablas y credenciales de lectura definitivas.
 """
 import argparse
-from pyspark.sql import SparkSession, functions as F, types as T
+from pyspark.sql import functions as F, types as T
 from pyspark.sql.window import Window
 
+from common import CATALOGO_SENSORES, RUTAS, get_spark, salida_permitida
+
 HDFS = "hdfs://namenode:8020/smartcity"
-SALIDA = HDFS + "/sandbox/etl_ambiente_hdfs_integral"
-CATALOGO = "/opt/smartcity/data/maestros/sensores.csv"
+SALIDA = RUTAS["ambiente_hdfs"]
+CATALOGO = CATALOGO_SENSORES
 METRICAS = ("pm25", "pm10", "co", "no2", "o3", "co2", "temperatura", "humedad", "precipitacion", "viento")
 ZONAS = ("Zona Norte", "Zona Sur", "Zona Centro", "Zona Este", "Zona Oeste")
 
@@ -185,14 +188,11 @@ def main():
     ap.add_argument("--salida", default=SALIDA)
     ap.add_argument("--catalogo", default=CATALOGO)
     args = ap.parse_args()
-    if not args.salida.startswith(HDFS + "/sandbox/"):
-        ap.error("--salida solo admite rutas HDFS dentro de /smartcity/sandbox")
+    if not salida_permitida(args.salida) or args.salida.rstrip("/") == RUTAS["ambiente"]:
+        ap.error("--salida debe estar en curated, analytics o sandbox y no puede ser RUTAS['ambiente'] (ETL desde Mongo)")
     if len(args.fecha_mongo) != 10 or args.fecha_mongo[4] != '-' or args.fecha_mongo[7] != '-':
         ap.error("--fecha-mongo debe ser AAAA-MM-DD")
-    spark = (SparkSession.builder.appName("SmartCity-B32-HDFS-RAW-ETL")
-             .config("spark.sql.session.timeZone", "UTC")
-             .config("spark.sql.shuffle.partitions", "8").getOrCreate())
-    spark.sparkContext.setLogLevel("WARN")
+    spark = get_spark("SmartCity-B32-HDFS-RAW-ETL")
     catalogo = None
     try:
         catalogo = maestro_sensores(spark, args.catalogo)

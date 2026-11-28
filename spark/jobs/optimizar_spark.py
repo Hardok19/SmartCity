@@ -16,10 +16,12 @@ import time
 from collections import defaultdict
 
 from pyspark import StorageLevel
-from pyspark.sql import SparkSession, functions as F, types as T
+from pyspark.sql import functions as F, types as T
 
-ENTRADA = "hdfs://namenode:8020/smartcity/sandbox/etl_ambiente_completa"
-DESTINO = "hdfs://namenode:8020/smartcity/sandbox/optimizacion_b43"
+from common import CATALOGO_SENSORES, RUTAS, get_spark
+
+ENTRADA = RUTAS["ambiente"]
+DESTINO = RUTAS["optimizacion"]
 PRUEBAS = ("particiones", "join", "aqe", "cache", "csv")
 
 
@@ -105,7 +107,7 @@ def prueba_particiones(spark, df, repeticiones, mediciones):
 def prueba_join(spark, df, repeticiones, mediciones):
     print("=== B43 JOIN: sort-merge frente a broadcast ===", flush=True)
     catalogo = (spark.read.option("header", True)
-        .csv("/opt/smartcity/data/maestros/sensores.csv")
+        .csv(CATALOGO_SENSORES)
         .select("id_sensor", "categoria")
         .dropDuplicates(["id_sensor"]))
     base = df.where((F.col("anio") == 2024) & (F.col("tipo_metrica") == "pm25"))
@@ -274,11 +276,7 @@ def main():
     elegidas = list(PRUEBAS) if "todas" in args.pruebas else list(dict.fromkeys(args.pruebas))
     etiqueta = "_".join(elegidas)
     ruta = f"{DESTINO}/ejecucion_{etiqueta}"
-    spark = (SparkSession.builder.appName("SmartCity-B4.3-Optimizacion")
-        .config("spark.sql.session.timeZone", "UTC")
-        .config("spark.sql.shuffle.partitions", "8")
-        .getOrCreate())
-    spark.sparkContext.setLogLevel("WARN")
+    spark = get_spark("SmartCity-B4.3-Optimizacion")
     try:
         df = spark.read.parquet(ENTRADA)
         faltan = {"anio", "mes", "zona", "timestamp", "tipo_metrica", "origen", "valor", "id_sensor"} - set(df.columns)

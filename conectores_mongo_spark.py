@@ -35,7 +35,7 @@ import pandas as pd
 from comun import CONFIG, Consulta, Filtros
 from contrato import (
     FUENTE_MONGO, FUENTE_SPARK, UNIDADES, ZONAS, normalizar_timestamp, ordenar_columnas_estandar,
-    validar_tipo_metrica, validar_zonas,
+    tipos_sensor_de, validar_tipo_metrica, validar_zonas,
 )
 
 RAIZ = Path(__file__).resolve().parent
@@ -43,16 +43,14 @@ if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 sys.path.append(str(RAIZ / "spark" / "jobs"))
 from rutas import RUTAS as RUTAS_HDFS  # noqa: E402  (rutas.py no depende de pyspark)
-from scripts.mongo_contrato import a_contrato, pipeline_lecturas  # noqa: E402
+from scripts.mongo_contrato import METRICAS_MONGO, a_contrato, pipeline_lecturas, variable_de  # noqa: E402
 
 DIR_MONGO_QUERIES = RAIZ / "mongo" / "queries"
 DIR_SPARK_SQL = RAIZ / "spark" / "sql"
 SEVERIDADES = ["baja", "media", "alta", "critica"]
 VARIABLES_AIRE = ["pm25", "pm10", "co", "no2", "o3", "co2"]
 VARIABLES_CLIMA = ["temperatura", "humedad", "precipitacion", "viento"]
-UNIDADES_VARIABLE = {"pm25": "µg/m3", "pm10": "µg/m3", "co": "µg/m3", "no2": "µg/m3", "o3": "µg/m3",
-                     "co2": "ppm", "temperatura": "°C", "humedad": "%", "precipitacion": "mm",
-                     "viento": "km/h"}
+UNIDADES_VARIABLE = {v: UNIDADES[v] for v in VARIABLES_AIRE + VARIABLES_CLIMA}   # del contrato (D-01)
 
 # =====================================================================================
 # 1. Conexiones y estado
@@ -106,12 +104,15 @@ def _docker(*args: str, env: Optional[dict] = None, timeout: int = 120, binario:
     return subprocess.run(["docker", *args], capture_output=True, text=not binario, timeout=timeout, env=entorno)
 
 
-def lanzar_job_spark(job: str, *argumentos: str, timeout: int = 1800) -> tuple[int, str]:
-    """Ejecuta ``spark/jobs/<job>.py`` con spark-submit dentro del master (D-04). Devuelve (código, salida)."""
+def lanzar_job_spark(job: str, *argumentos: str, timeout: int = 1800, cores: int = 2) -> tuple[int, str]:
+    """Ejecuta ``spark/jobs/<job>.py`` con spark-submit dentro del master (D-04). Devuelve (código, salida).
+
+    ``cores`` = núcleos de ejecutor que pide el job (E5 compara 1 frente a 2).
+    """
     r = _docker(
         "exec", "--user", "0:0", "-e", "HOME=/tmp", "-e", "HADOOP_USER_NAME=root", "-e", "MONGO_URI",
         CONFIG.contenedor_spark, "/opt/bitnami/spark/bin/spark-submit",
-        "--master", "spark://spark-master:7077", "--total-executor-cores", "2",
+        "--master", "spark://spark-master:7077", "--total-executor-cores", str(cores),
         "--conf", "spark.jars.ivy=/tmp/.ivy2",
         "--packages", "org.mongodb.spark:mongo-spark-connector_2.12:10.4.1,org.postgresql:postgresql:42.7.4",
         "--py-files", "/opt/smartcity/spark/jobs/common.py,/opt/smartcity/spark/jobs/rutas.py",
@@ -612,6 +613,12 @@ def _match_lectura(f: Filtros, tipo: Optional[str] = None) -> dict:
     return m
 
 
+def _match_tipo_sensor(f: Filtros) -> dict:
+    """Filtro «Tipo de medición» sobre el tipo de sensor del documento (pm25 -> calidad_aire, temperatura -> clima)."""
+    tipos = tipos_sensor_de(f.tipos_metrica)
+    return {"tipo": {"$in": tipos}} if tipos else {}
+
+
 def _etapa_perfil(f: Filtros, campo: str = "$timestamp") -> list:
     if f.perfil_horario == "todo_el_dia":
         return []
@@ -635,15 +642,23 @@ def _match_zona_fecha(f: Filtros, campo_fecha: str, campo_zona: str = "zona.nomb
 
 
 def lecturas_mongo(f: Filtros, limite: int = 20_000) -> pd.DataFrame:
-    """Lecturas en COLUMNAS_ESTANDAR (calidad_aire -> valor = PM2.5), ``fuente="MongoDB"``."""
-    tipos = [t for t in (f.tipos_metrica or ("calidad_aire",)) if t == "calidad_aire"]
-    if not tipos:
+    """Lecturas en COLUMNAS_ESTANDAR, una fila por métrica (pm25, temperatura, …; D-01), ``fuente="MongoDB"``.
+
+    Sin tipo en el filtro se devuelve PM2.5. Las métricas que no están en Mongo (trafico, energia…) se ignoran.
+    """
+    metricas = [t for t in (f.tipos_metrica or ("pm25",)) if t in METRICAS_MONGO or t == "calidad_aire"]
+    partes = []
+    for metrica in metricas:
+        base = pipeline_lecturas(fecha_inicio=f.desde_utc, fecha_fin=f.hasta_utc, zonas=list(f.zonas) or None,
+                                 id_sensor=f.id_sensor, tipos=(metrica,))
+        pipeline = [base[0], *_etapa_perfil(f), *_etapa_valor(f, variable_de(metrica)), {"$sort": {"timestamp": -1}},
+                    {"$limit": int(limite)}, base[1]]
+        partes.append(a_contrato(db().lectura.aggregate(pipeline, allowDiskUse=True)))
+    partes = [p for p in partes if not p.empty]
+    if not partes:
         return pd.DataFrame(columns=["zona", "timestamp", "id_sensor", "tipo_metrica", "valor", "fuente"])
-    base = pipeline_lecturas(fecha_inicio=f.desde_utc, fecha_fin=f.hasta_utc, zonas=list(f.zonas) or None,
-                             id_sensor=f.id_sensor, tipos=tipos)
-    pipeline = [base[0], *_etapa_perfil(f), *_etapa_valor(f, "pm25"), {"$sort": {"timestamp": -1}},
-                {"$limit": int(limite)}, base[1]]
-    return a_contrato(db().lectura.aggregate(pipeline, allowDiskUse=True))
+    df = pd.concat(partes, ignore_index=True).sort_values("timestamp", ascending=False).head(int(limite))
+    return df.reset_index(drop=True)
 
 
 def kpis_ambiente(f: Filtros) -> dict:
@@ -670,7 +685,7 @@ def kpis_ambiente(f: Filtros) -> dict:
 
 def kpis_iot_mongo(f: Filtros) -> dict:
     """Mediciones recibidas, alertas generadas y ritmo de datos (por día, hora, minuto y segundo)."""
-    pipeline = [{"$match": _match_lectura(f)}, *_etapa_perfil(f),
+    pipeline = [{"$match": {**_match_lectura(f), **_match_tipo_sensor(f)}}, *_etapa_perfil(f),
                 {"$group": {"_id": None, "n": {"$sum": 1}, "desde": {"$min": "$timestamp"},
                             "hasta": {"$max": "$timestamp"}, "sensores": {"$addToSet": "$sensor_id"},
                             "invalidas": {"$sum": {"$cond": [{"$eq": ["$calidad_dato.valido", False]}, 1, 0]}}}}]
@@ -726,7 +741,7 @@ def comparativa_zonas(f: Filtros, variable: str = "pm25") -> pd.DataFrame:
 def distribucion_tipos(f: Filtros) -> pd.DataFrame:
     """Lecturas y sensores por tipo de sensor (para la dona). Fuente MongoDB."""
     df = _agg("lectura", [
-        {"$match": _match_lectura(f)}, *_etapa_perfil(f),
+        {"$match": {**_match_lectura(f), **_match_tipo_sensor(f)}}, *_etapa_perfil(f),
         {"$group": {"_id": "$tipo", "lecturas": {"$sum": 1}, "sensores": {"$addToSet": "$sensor_id"}}},
         {"$project": {"_id": 0, "tipo": "$_id", "lecturas": 1, "sensores": {"$size": "$sensores"}}},
         {"$sort": {"lecturas": -1}},
@@ -739,7 +754,7 @@ def distribucion_tipos(f: Filtros) -> pd.DataFrame:
 def sensores_mongo(f: Filtros) -> pd.DataFrame:
     """Sensores que reportan en MongoDB, con posición y PM2.5 promedio (para el mapa)."""
     df = _agg("lectura", [
-        {"$match": _match_lectura(f)}, *_etapa_perfil(f),
+        {"$match": {**_match_lectura(f), **_match_tipo_sensor(f)}}, *_etapa_perfil(f),
         {"$group": {"_id": "$sensor_id", "tipo": {"$first": "$tipo"}, "zona": {"$first": "$ubicacion.zona"},
                     "coords": {"$first": "$ubicacion.geo.coordinates"}, "lecturas": {"$sum": 1},
                     "pm25": {"$avg": "$mediciones.pm25"}, "ultima": {"$max": "$timestamp"},
@@ -892,9 +907,16 @@ def lecturas_trafico_energia(f: Filtros) -> pd.DataFrame:
     return ordenar_columnas_estandar(df)
 
 
+def _solo_sensor(df: pd.DataFrame, f: Filtros) -> pd.DataFrame:
+    """Filtro «Sensor» en los KPIs: se aplica si el sensor elegido es un contador o medidor de esta serie."""
+    if f.id_sensor and f.id_sensor in set(df["id_sensor"]):
+        return df[df["id_sensor"] == f.id_sensor]
+    return df
+
+
 def kpis_movilidad(f: Filtros) -> dict:
     df = trafico_energia(f)
-    t = df[df["tipo_metrica"] == "trafico"]
+    t = _solo_sensor(df[df["tipo_metrica"] == "trafico"], f)
     if t.empty:
         return {"fuente": FUENTE_SPARK, "sintetico": True}
     por_hora = t.groupby(t["timestamp"].dt.hour)["valor"].mean()
@@ -910,7 +932,7 @@ def kpis_movilidad(f: Filtros) -> dict:
 
 def kpis_energia(f: Filtros) -> dict:
     df = trafico_energia(f)
-    e = df[df["tipo_metrica"] == "energia"]
+    e = _solo_sensor(df[df["tipo_metrica"] == "energia"], f)
     if e.empty:
         return {"fuente": FUENTE_SPARK, "sintetico": True}
     por_hora = e.groupby(e["timestamp"].dt.hour)["valor"].mean()
@@ -919,7 +941,7 @@ def kpis_energia(f: Filtros) -> dict:
     anterior = _periodo_anterior(f)
     if anterior is not None:
         prev = trafico_energia(anterior)
-        prev_total = float(prev.loc[prev["tipo_metrica"] == "energia", "valor"].sum())
+        prev_total = float(_solo_sensor(prev[prev["tipo_metrica"] == "energia"], f)["valor"].sum())
         variacion = 100 * (total - prev_total) / prev_total if prev_total > 0 else None
     return {
         "consumo_total_kwh": total,

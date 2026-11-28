@@ -3,8 +3,8 @@
 **Curso/proyecto:** SmartCity, proyecto II semestre 2026
 **Responsable:** Pareja B — MongoDB y Apache Spark
 **Período de los datos:** 2023–2024
-**Fuente de las cifras:** salidas de `spark-submit` compartidas durante las pruebas; cifras comprobadas a nivel funcional, no auditoría independiente de las fuentes de origen.
-**Estado:** 10 consultas Spark SQL ejecutadas; 8 rutinas de B4.2 ejecutadas, con limitaciones descritas al final.
+**Fuente de las cifras:** salidas de `spark-submit` de la ejecución completa del 2026-11-27 en este entorno (OpenAQ del archivo público S3, Open-Meteo, generador con semilla 2026); cifras comprobadas a nivel funcional, no auditoría independiente de las fuentes de origen.
+**Estado:** 10 consultas Spark SQL ejecutadas (10/10); 8 rutinas de B4.2 ejecutadas (8/8); resultados cargados en PostgreSQL; limitaciones al final.
 
 ## 1. Arquitectura y volumen procesado
 
@@ -12,16 +12,16 @@ El flujo probado consiste en leer documentos de MongoDB (`smartcity_db.lectura`)
 
 | Indicador | Resultado |
 |---|---:|
-| Documentos de MongoDB procesados por el ETL | 1.068.777 |
-| Filas resultantes del ETL | 4.389.705 |
+| Documentos de MongoDB procesados por el ETL | 1.068.584 |
+| Filas resultantes del ETL | 4.380.538 |
 | Sensores con mediciones | 38 |
 | Zonas de estudio | 5 |
 | Período | 2023–2024 |
-| Espacio lógico de Parquet ambiental en HDFS, sin contar réplica | ~16 MB |
+| Espacio lógico de Parquet ambiental en HDFS, sin contar réplica | 15,5 MB |
 
-**Ruta principal:** `hdfs://namenode:8020/smartcity/sandbox/etl_ambiente_completa`.
-**Ruta de resultados:** `hdfs://namenode:8020/smartcity/sandbox/analitica/`.
-**Ruta del reporte Spark SQL SP-Q10:** `hdfs://namenode:8020/smartcity/sandbox/reporte_spark_q10`.
+**Ruta principal:** `hdfs://namenode:8020/smartcity/curated/ambiente`.
+**Ruta de resultados:** `hdfs://namenode:8020/smartcity/analytics/`.
+**Ruta del reporte Spark SQL SP-Q10:** `hdfs://namenode:8020/smartcity/analytics/reporte_q10`.
 
 ## 2. Análisis descriptivo
 
@@ -31,7 +31,7 @@ Se generaron **85 grupos** con cantidad de mediciones, sensores activos, media, 
 
 ## 3. Análisis temporal
 
-Se generaron **164 registros** de promedios mensuales de PM2.5 y **240 registros** del perfil de temperatura por hora del día. Se mantuvo la separación por origen para no combinar los datos de OpenAQ, Open-Meteo y datos sintéticos sin advertencia.
+Se generaron **163 registros** de promedios mensuales de PM2.5 y **240 registros** del perfil de temperatura por hora del día. Se mantuvo la separación por origen para no combinar los datos de OpenAQ, Open-Meteo y datos sintéticos sin advertencia.
 
 Ejemplo, Zona Centro en enero de 2023: PM2.5 de origen OpenAQ **13,896**, frente a PM2.5 sintético **14,642**. En el mismo mes, la comparación entre orígenes requiere considerar que corresponden a sensores distintos.
 
@@ -43,9 +43,9 @@ Se calcularon **210 filas** de correlaciones de Pearson para seis variables (PM2
 
 | Relación | Zona Centro, fuentes externas | Zona Este, fuentes externas |
 |---|---:|---:|
-| PM2.5 – PM10 | 0,8480 | 0,3727 |
-| PM2.5 – viento | -0,1943 | -0,1724 |
-| PM2.5 – temperatura | 0,0598 | 0,0078 |
+| PM2.5 – PM10 | 0,8532 | 0,3651 |
+| PM2.5 – viento | -0,2014 | -0,1793 |
+| PM2.5 – temperatura | 0,0564 | 0,0013 |
 
 Los coeficientes sugieren una relación positiva fuerte entre PM2.5 y PM10 en Centro y una relación negativa débil entre PM2.5 y viento en ambas zonas. **Correlación no demuestra causalidad.** Para PM2.5 externo, Norte, Sur y Oeste carecen de pares de observaciones en el período; los valores `NULL` son una limitación de cobertura.
 
@@ -53,14 +53,14 @@ Los coeficientes sugieren una relación positiva fuerte entre PM2.5 y PM10 en Ce
 
 ## 5. Análisis predictivo (Spark MLlib)
 
-Se entrenaron **siete modelos** de regresión lineal sobre promedios diarios: entrenamiento en **2023** y prueba posterior en **2024**. Se produjeron **2.382 estimaciones** de 2024. Se evaluó el error contra una línea base que predice el promedio de entrenamiento.
+Se entrenaron **siete modelos** de regresión lineal sobre promedios diarios: entrenamiento en **2023** y prueba posterior en **2024**. Se produjeron **2.355 estimaciones** de 2024. Se evaluó el error contra una línea base que predice el promedio de entrenamiento.
 
 | Zona | Procedencia | RMSE | R² | Mejora sobre baseline |
 |---|---|---:|---:|---|
-| Centro | Fuentes externas | 4,264 | -0,136 | No |
-| Este | Fuentes externas | 7,845 | -0,607 | No |
-| Centro | Sintético | 9,386 | 0,025 | Sí, marginal |
-| Este | Sintético | 5,260 | 0,029 | Sí, marginal |
+| Centro | Fuentes externas | 4,418 | -0,144 | No (baseline 4,209) |
+| Este | Fuentes externas | 7,950 | -0,692 | No (baseline 6,205) |
+| Centro | Sintético | 9,378 | 0,023 | Sí, marginal |
+| Este | Sintético | 5,456 | 0,010 | Sí, marginal |
 | Norte | Sintético | 6,304 | 0,018 | Sí, marginal |
 | Oeste | Sintético | 4,877 | 0,045 | Sí, marginal |
 | Sur | Sintético | 7,023 | 0,022 | Sí, marginal |
@@ -71,9 +71,9 @@ Los dos modelos con fuentes externas tienen peores errores que la línea base, y
 
 ## 6. Análisis espacial
 
-El análisis consideró **610.018 mediciones** de PM2.5. Se generaron **10 filas por zona y origen** (incluyendo combinaciones sin observaciones) y **20 filas por sensor y origen**. Las agregaciones por zona y sensor reproducen exactamente las 610.018 lecturas, sin sensores con coordenadas faltantes ni zonas inconsistentes.
+El análisis consideró **608.534 mediciones** de PM2.5. Se generaron **10 filas por zona y origen** (incluyendo combinaciones sin observaciones) y **20 filas por sensor y origen**. Las agregaciones por zona y sensor reproducen exactamente las 608.534 lecturas, sin sensores con coordenadas faltantes ni zonas inconsistentes.
 
-Promedio de PM2.5 por zona para sensores sintéticos: Centro **13,076**, Norte **11,786**, Sur **10,725**, Este **9,380**, Oeste **8,946**. En el conjunto identificado como OpenAQ hay observaciones de PM2.5 únicamente en Centro (**10.020**) y Este (**9.580**). No se deben interpolar ni inventar valores para las tres zonas faltantes.
+Promedio de PM2.5 por zona para sensores sintéticos: Centro **13,066**, Norte **11,786**, Sur **10,725**, Este **9,247**, Oeste **8,946**. En el conjunto identificado como OpenAQ hay observaciones de PM2.5 únicamente en Centro (**8.523**, promedio 11,056) y Este (**9.593**, promedio 9,345). No se deben interpolar ni inventar valores para las tres zonas faltantes.
 
 **Salidas:** `analitica/espacial_zonas_pm25`, `analitica/espacial_sensores_pm25`.
 
@@ -86,8 +86,8 @@ Se generaron **336 filas** de perfil horario, **7 comparaciones** de franjas pic
 | Norte | Sintético | +2,910 | +25,62 % |
 | Sur | Sintético | +2,648 | +25,68 % |
 | Oeste | Sintético | +2,120 | +24,45 % |
-| Centro | OpenAQ | -0,199 | -1,80 % |
-| Este | OpenAQ | +0,397 | +4,30 % |
+| Centro | OpenAQ | -0,238 | -2,11 % |
+| Este | OpenAQ | +0,264 | +2,86 % |
 
 **Advertencia metodológica esencial:** estas cifras describen la diferencia ambiental entre horarios, **no identifican niveles, aforos ni horas de mayor tráfico real**. El requisito de movilidad con datos de tráfico queda pendiente si así lo exige la revisión docente.
 
@@ -95,13 +95,13 @@ Se generaron **336 filas** de perfil horario, **7 comparaciones** de franjas pic
 
 ## 8. Detección de anomalías
 
-Se registraron **49.255 detecciones**: **10.762** casos marcados en documentos MongoDB y **38.493** mediciones del Parquet curado con `|Z| >= 3`. Se generaron **120 filas de resumen** y rankings para **38 sensores**. Ambas poblaciones se procesan separadamente: los documentos excluidos por la limpieza se examinan desde MongoDB; el Z-score se calcula sobre mediciones retenidas en HDFS.
+Se registraron **134.063 detecciones** con tres métodos: **13.852** documentos MongoDB marcados como inválidos por la limpieza, **38.278** mediciones del Parquet curado con `|Z| >= 3` y **81.933** fuera de la valla IQR de su sensor. **29.926** mediciones las detectan a la vez Z-score e IQR. Se generaron **273 filas de resumen** y rankings para **38 sensores**. Ambas poblaciones se procesan separadamente: los documentos excluidos por la limpieza se examinan desde MongoDB; el Z-score se calcula sobre mediciones retenidas en HDFS.
 
-Los sensores con más detecciones fueron S-018 (2.304), S-017 (2.089), S-019 (2.061), S-038 (1.926) y S-036 (1.916). El conteo corresponde a **detecciones de métodos**, no a incidentes independientes verificados. Valores extremos requieren revisión y no prueban por sí mismos una avería del sensor.
+Los sensores con más detecciones (los tres métodos) fueron S-018 (7.637), S-017 (6.742), S-019 (6.701), S-030 (6.275) y S-032 (6.164). El conteo corresponde a **detecciones de métodos**, no a incidentes independientes verificados. Valores extremos requieren revisión y no prueban por sí mismos una avería del sensor.
 
 **Salidas:** `analitica/anomalias_detalle`, `analitica/anomalias_resumen`, `analitica/anomalias_sensores`.
 
-**IQR por sensor (agregado después de esta ejecución):** `analitica.py` incorpora un tercer método, `metodo_deteccion = "iqr"` (valor < Q1 − 1,5·IQR o > Q3 + 1,5·IQR por sensor e indicador, con al menos 30 valores e IQR > 0), y reporta cuántas lecturas detectan a la vez Z-score e IQR (`SMARTCITY_B42_ANOMALIAS_ZSCORE_E_IQR`). **Cifras pendientes** de volver a ejecutar `--analisis anomalias`.
+**IQR por sensor:** `metodo_deteccion = "iqr"` marca un valor < Q1 − 1,5·IQR o > Q3 + 1,5·IQR de su sensor e indicador (con al menos 30 valores e IQR > 0). Detecta más del doble que Z-score (81.933 frente a 38.278) porque la valla IQR no depende de la desviación estándar, que los propios picos inflan; el 78 % de lo que detecta Z-score también lo detecta IQR (29.926, `SMARTCITY_B42_ANOMALIAS_ZSCORE_E_IQR`). IQR usa percentiles exactos (`percentile`), así que el conteo es el mismo en cada ejecución (con `percentile_approx` variaba unas décimas de por mil entre corridas).
 
 ## 9. Análisis comparativo por zona y año
 
@@ -112,27 +112,27 @@ Se obtuvieron **160 filas** de perfil anual por indicador, **10 filas** para com
 | Norte | 11,168 | 12,402 | +11,05 % |
 | Sur | 10,221 | 11,229 | +9,86 % |
 | Oeste | 8,605 | 9,205 | +6,97 % |
-| Centro | 12,786 | 13,365 | +4,53 % |
-| Este | 9,391 | 9,372 | -0,20 % |
+| Centro | 12,768 | 13,362 | +4,65 % |
+| Este | 9,528 | 9,024 | -5,29 % |
 
-Para OpenAQ, Centro pasó de **11,413** a **10,531** (-7,73 %), y Este de **9,810** a **9,096** (-7,28 %). Las coberturas son desiguales: Centro **263 días en 2023 / 277 en 2024**, Este **169 / 302**. Estas diferencias no constituyen por sí solas evidencia de una mejoría de calidad del aire, porque pueden reflejar sesgo de muestreo.
+Para OpenAQ, Centro pasó de **11,387** a **10,745** (-5,64 %), y Este de **9,732** a **9,110** (-6,39 %). Las coberturas son desiguales: Centro **246 días en 2023 / 264 en 2024**, Este **186 / 301**. Estas diferencias no constituyen por sí solas evidencia de una mejoría de calidad del aire, porque pueden reflejar sesgo de muestreo.
 
 **Salidas:** `analitica/comparativo_perfil_anual`, `analitica/comparativo_pm25_2023_2024`, `analitica/comparativo_top3_incremento_interanual`.
 
 ## 10. Spark SQL y reporte consolidado
 
-Las consultas **SP-Q01 a SP-Q10** se ejecutaron con éxito individualmente. SP-Q10 consolidó **4.389.705 mediciones**, **38 sensores** y cinco zonas, sin mediciones de origen desconocido, y generó un Parquet de reporte con archivo `_SUCCESS`. No obstante, actualmente la prueba de exportación se dirige a HDFS `sandbox`, no a la tabla final `spark_kpi_zona` de PostgreSQL.
+Las consultas **SP-Q01 a SP-Q10** se ejecutaron con éxito individualmente. SP-Q10 consolidó **4.380.538 mediciones**, **38 sensores** y cinco zonas, sin mediciones de origen desconocido, y generó un Parquet de reporte con archivo `_SUCCESS`. El resultado de cada consulta queda en HDFS (`consultas_spark/SP-Qxx`); los KPI por zona y día llegan a PostgreSQL con `carga_pg.py` (`spark_kpi_zona`, 35.104 filas).
 
 ## 11. Limitaciones y siguientes tareas
 
 1. **Trazabilidad de fuentes:** diferenciar siempre `openaq`, `open-meteo` y `sintetico`; una etiqueta de procedencia no sustituye una auditoría de calidad independiente de cada valor. El generador puede introducir valores extraordinarios en las series producidas para SmartCity.
 2. **Cobertura histórica:** PM2.5 proveniente de OpenAQ solo está disponible en Centro y Este para el período analizado. Las zonas restantes utilizan PM2.5 sintético en estas pruebas.
 3. **Movilidad:** el análisis de horarios pico es un proxy ambiental; falta un conjunto de datos de tráfico si se desea responder literalmente a la pregunta de circulación vehicular.
-4. **Anomalías:** IQR por sensor ya implementado; falta volver a ejecutarlo y anotar las cifras y la coincidencia con Z-score en la §8.
-5. **Integración PostgreSQL:** comprobar las tablas reales de la pareja A y construir `spark/jobs/carga_pg.py`, con inserción idempotente y conteos verificables. No inventar esquemas antes de inspeccionarlos.
+4. **Anomalías:** ✅ IQR por sensor ejecutado (§8). Las detecciones son de métodos, no incidentes verificados.
+5. **Integración PostgreSQL:** ✅ `spark/jobs/carga_pg.py` carga en las tablas de la pareja A con staging + `INSERT … ON CONFLICT` (idempotente, conteo Spark = PostgreSQL). Cargado el 2026-11-27: `medicion_horaria` 2.456.672 filas ambientales + 175.440 de tráfico y energía (2.632.112 en total), `agg_ambiente_hora_zona` 87.720, `spark_kpi_zona` 35.104 y `spark_anomalia` 104.137 (se reemplaza completa en cada carga); vistas materializadas refrescadas.
 6. **Optimización B4.3:** programa `optimizar_spark.py` y metodología en `docs/resultados/spark_optimizacion.md`; faltan las cifras de una ejecución y las capturas de la Spark UI.
-7. **Dashboard B5/D:** conectar consultas y resultados almacenados a la interfaz Streamlit; ejecutar las consultas por tecnología desde ella.
+7. **Dashboard B5/D:** ✅ las consultas SP-Q01…Q10 y los 8 análisis se ejecutan y visualizan desde «Consultas por tecnología»; el Top 3 de hora pico es el gráfico Spark de la vista principal.
 8. **Reproducibilidad:** fijar dependencias NumPy/SciPy en la imagen Spark de Docker; las instalaciones manuales dentro del contenedor se pierden si se recrea.
-9. **Rutas finales:** el prototipo utiliza `sandbox`; antes de la entrega acordar con el equipo las rutas oficiales bajo `/smartcity/curated/` y `/smartcity/analytics/`.
+9. **Rutas finales:** ✅ desde el 2026-11-27 el ETL escribe en `/smartcity/curated/` y los análisis y consultas en `/smartcity/analytics/` (`spark/jobs/rutas.py`); `sandbox/` queda para pruebas y el experimento B4.3.
 
 **Estado de entrega:** evidencia funcional de diez consultas y ocho rutinas de análisis; no equivale todavía a completar todas las integraciones, optimizaciones y requisitos de datos del proyecto.

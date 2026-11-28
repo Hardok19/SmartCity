@@ -6,12 +6,14 @@ con PM2.5 y precipitacion por separado para mostrar fuentes y cobertura.
 No sustituye ni modifica el analisis ambiental de movilidad existente.
 """
 import argparse
-from pyspark.sql import SparkSession, functions as F, types as T
+from pyspark.sql import functions as F, types as T
 from pyspark.sql.window import Window
 
-TRAFICO = "hdfs://namenode:8020/smartcity/raw/trafico/*.csv"
-AMBIENTE = "hdfs://namenode:8020/smartcity/sandbox/etl_ambiente_completa"
-SALIDA = "hdfs://namenode:8020/smartcity/sandbox/analitica"
+from common import RUTAS, get_spark, salida_permitida
+
+TRAFICO = RUTAS["raw"] + "/trafico/*.csv"
+AMBIENTE = RUTAS["ambiente"]
+SALIDA = RUTAS["analitica"]
 
 ESQUEMA = T.StructType([
     T.StructField("timestamp_utc", T.StringType()),
@@ -146,12 +148,9 @@ def main():
     ap.add_argument("--entrada-ambiente", default=AMBIENTE)
     ap.add_argument("--salida", default=SALIDA)
     args = ap.parse_args()
-    if not args.salida.startswith("hdfs://namenode:8020/smartcity/sandbox/"):
-        ap.error("La salida debe permanecer en HDFS sandbox")
-    spark = (SparkSession.builder.appName("SmartCity-B42-Movilidad-Trafico-Simulado")
-             .config("spark.sql.session.timeZone", "UTC")
-             .config("spark.sql.shuffle.partitions", "8").getOrCreate())
-    spark.sparkContext.setLogLevel("WARN")
+    if not salida_permitida(args.salida):
+        ap.error("La salida debe estar en /smartcity/analytics o /smartcity/sandbox")
+    spark = get_spark("SmartCity-B42-Movilidad-Trafico-Simulado")
     try:
         analizar_trafico(spark, entrada_trafico=args.entrada_trafico,
                         entrada_ambiente=args.entrada_ambiente, salida=args.salida)

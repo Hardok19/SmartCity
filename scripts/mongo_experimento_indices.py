@@ -49,6 +49,10 @@ CONSULTAS = {
     "MG-Q05": {
         "descripcion": "Alertas por zona entre 2024-02-15 y 2024-06-15",
         "indice": "ix_zona_emitida",
+        "nota": ("MongoDB no usa `ix_zona_emitida` (`zona.nombre`, `emitida`) porque el filtro es solo un rango de "
+                 "`emitida`: un índice compuesto sirve únicamente si la consulta filtra por su primer campo (regla del "
+                 "prefijo). Con 1.190 alertas el recorrido completo cuesta lo mismo que un índice (~1 ms); si la "
+                 "colección creciera, convendría un índice propio sobre `emitida` o filtrar también por zona."),
         "comando": {"aggregate": "alerta", "cursor": {},
                     "pipeline": [
                         {"$match": {"emitida": {"$gte": D(2024, 2, 15), "$lte": D(2024, 6, 15, 23, 59, 59)}}},
@@ -163,6 +167,8 @@ def main():
         factor_ms = sin["ms"] / max(con["ms"], 1)
         lineas.append(f"- **{ident}** ({CONSULTAS[ident]['descripcion']}): con índice examina {num(con['docs'])} documentos "
                       f"frente a {num(sin['docs'])} sin índice (×{num(factor_docs, 1)}); tiempo ×{num(factor_ms, 1)}.")
+        if con["etapa"] == "COLLSCAN" and CONSULTAS[ident].get("nota"):
+            lineas.append(f"  {CONSULTAS[ident]['nota']}")
     (destino / "mongo_indices.md").write_text("\n".join(lineas) + "\n", encoding="utf-8")
     print(f"\nEscrito {destino / 'mongo_indices.md'}")
 

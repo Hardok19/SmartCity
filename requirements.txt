@@ -15,3 +15,4 @@ streamlit>=1.50
 plotly
 pydeck
 pytest
+markdown

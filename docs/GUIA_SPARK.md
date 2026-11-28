@@ -105,7 +105,7 @@ Comprobar el almacenamiento HDFS y crear las carpetas base:
 
 ```bash
 MSYS_NO_PATHCONV=1 docker exec smartcity_namenode \
-  hadoop fs -mkdir -p /smartcity/raw /smartcity/sandbox
+  hadoop fs -mkdir -p /smartcity/raw /smartcity/curated /smartcity/analytics /smartcity/sandbox
 
 MSYS_NO_PATHCONV=1 docker exec smartcity_namenode \
   hadoop fs -ls /smartcity
@@ -223,12 +223,12 @@ python scripts/mongo_cargar.py --dir data/interim/mongo/final --reiniciar --lote
 
 La carga imprime los conteos. En la ejecución de referencia se obtuvieron:
 
-| Colección | Documentos de referencia |
-|---|---:|
-| `lectura` | 1.068.777 |
-| `alerta` | 1.182 |
-| `evento` | 1.420 |
-| `incidente` | 3.000 |
+| Colección | Documentos de referencia | Ejecución 2026-11-27 (OpenAQ del archivo S3) |
+|---|---:|---:|
+| `lectura` | 1.068.777 | 1.068.584 |
+| `alerta` | 1.182 | 1.190 |
+| `evento` | 1.420 | 1.428 |
+| `incidente` | 3.000 | 3.000 |
 
 Los totales dependen de las fuentes y del generador. **No son conteos garantizados para una instalación nueva.**
 
@@ -269,17 +269,17 @@ MSYS_NO_PATHCONV=1 docker exec --user 0:0 -e HOME=/tmp -e HADOOP_USER_NAME=root 
   --conf spark.jars.ivy=/tmp/.ivy2 \
   --packages org.mongodb.spark:mongo-spark-connector_2.12:10.4.1 \
   /opt/smartcity/spark/jobs/etl_ambiente.py \
-  --salida hdfs://namenode:8020/smartcity/sandbox/etl_ambiente_completa
+  --salida hdfs://namenode:8020/smartcity/curated/ambiente
 ```
 
 Verificar:
 
 ```bash
 MSYS_NO_PATHCONV=1 docker exec smartcity_namenode \
-  hadoop fs -ls /smartcity/sandbox/etl_ambiente_completa
+  hadoop fs -ls /smartcity/curated/ambiente
 ```
 
-En la ejecución de referencia: `SMARTCITY_ETL_DOCUMENTOS_ENTRADA=1068777` y `SMARTCITY_ETL_FILAS_PARQUET=4389705`. Se espera `_SUCCESS` y particiones `anio=2023/`, `anio=2024/`. El ETL **sobrescribe exclusivamente la ruta de salida indicada**: no apuntarlo a una carpeta con datos que se quieran conservar.
+En la ejecución de referencia: `SMARTCITY_ETL_DOCUMENTOS_ENTRADA=1068777` y `SMARTCITY_ETL_FILAS_PARQUET=4389705` (en la del 2026-11-27, 1068584 y 4380538). Se espera `_SUCCESS` y particiones `anio=2023/`, `anio=2024/`. El ETL **sobrescribe exclusivamente la ruta de salida indicada**: no apuntarlo a una carpeta con datos que se quieran conservar.
 
 > **Alcance:** esta versión del ETL consume la colección MongoDB y no lee directamente los CSV/JSON crudos desde HDFS ni carga todavía los resultados en PostgreSQL. Es una implementación funcional de la primera etapa, no toda la integración B3.2/B3.4 planeada.
 
@@ -289,15 +289,15 @@ En la ejecución de referencia: `SMARTCITY_ETL_DOCUMENTOS_ENTRADA=1068777` y `SM
 
 **Programa:** `spark/jobs/analitica.py`
 
-**Entrada:** `hdfs://namenode:8020/smartcity/sandbox/etl_ambiente_completa`
+**Entrada:** `hdfs://namenode:8020/smartcity/curated/ambiente`
 
-**Salidas:** `hdfs://namenode:8020/smartcity/sandbox/analitica/`
+**Salidas:** `hdfs://namenode:8020/smartcity/analytics/`
 
 **Tecnología:** API DataFrame de PySpark y MLlib para el predictivo.
 
 Estos **8 análisis** son trabajos analíticos que guardan resultados en Parquet. **No son las mismas cosas que las 10 consultas SQL de la sección 8.**
 
-| N.º | Identificador `--analisis` | Propósito | Salidas en `/smartcity/sandbox/analitica/` |
+| N.º | Identificador `--analisis` | Propósito | Salidas en `/smartcity/analytics/` |
 |---:|---|---|---|
 | 1 | `descriptivo` | Estadísticos, mediciones y sensores por zona/variable/origen | `descriptivo` |
 | 2 | `temporal` | PM2.5 por mes y temperatura según hora | `temporal_pm25_mensual`, `temporal_temperatura_hora` |
@@ -340,13 +340,13 @@ MSYS_NO_PATHCONV=1 docker exec --user 0:0 -e HOME=/tmp -e HADOOP_USER_NAME=root 
   /opt/smartcity/spark/jobs/analitica.py --analisis anomalias
 ```
 
-Este análisis no está limitado a las 50 filas de demostración de SP-Q07. En la ejecución de referencia generó **10.762 casos marcados** y **38.493 detecciones estadísticas**. No deben interpretarse como 49.255 incidentes independientes ni confundirse con las anomalías originalmente inyectadas por el generador.
+Este análisis no está limitado a las 50 filas de demostración de SP-Q07. En la ejecución de referencia generó **10.762 casos marcados** y **38.493 detecciones estadísticas** (en la del 2026-11-27, con IQR: 13.852 marcados, 38.278 por z-score y 81.933 por IQR). No deben interpretarse como incidentes independientes ni confundirse con las anomalías originalmente inyectadas por el generador.
 
 ### 7.3. Comprobar que se guardaron los ocho análisis
 
 ```bash
 MSYS_NO_PATHCONV=1 docker exec smartcity_namenode \
-  hadoop fs -ls /smartcity/sandbox/analitica
+  hadoop fs -ls /smartcity/analytics
 ```
 
 Se esperan las carpetas señaladas en la tabla. No se requiere que cada consulta produzca la misma cantidad de registros en otra instalación.
@@ -404,7 +404,7 @@ Si todas tienen éxito, deberán aparecer los diez mensajes `SMARTCITY_SPARK_OK=
 
 ```text
 SMARTCITY_SPARK_RESUMEN=10/10
-SMARTCITY_SPARK_REPORTE=hdfs://namenode:8020/smartcity/sandbox/reporte_spark_q10
+SMARTCITY_SPARK_REPORTE=hdfs://namenode:8020/smartcity/analytics/reporte_q10
 ```
 
 El ejecutor muestra normalmente las primeras **20 filas** de cada resultado; **eso no significa que cada consulta tenga solo 20 filas**. SP-Q07, además, puede devolver una muestra limitada por su SQL, diferente del análisis completo B4.2 de anomalías.
@@ -439,12 +439,12 @@ Comprobar el reporte guardado:
 
 ```bash
 MSYS_NO_PATHCONV=1 docker exec smartcity_namenode \
-  hadoop fs -ls -h /smartcity/sandbox/reporte_spark_q10
+  hadoop fs -ls -h /smartcity/analytics/reporte_q10
 ```
 
 Se espera `_SUCCESS` y al menos un `part-*.snappy.parquet`.
 
-**Exportar resultados para el dashboard:** agregar `--exportar` guarda el resultado de cada consulta en `/smartcity/sandbox/consultas_spark/<ID>/` (máx. 5.000 filas), que es lo que muestra «Consultas por tecnología → Spark».
+**Exportar resultados para el dashboard:** agregar `--exportar` guarda el resultado de cada consulta en `/smartcity/analytics/consultas_spark/<ID>/` (máx. 5.000 filas), que es lo que muestra «Consultas por tecnología → Spark».
 
 **Limitaciones pendientes de B4.1:** SP-Q09 ya usa `PIVOT` explícito (mismas columnas de salida que antes). SP-Q06 aún puede combinar fuentes en algunas tendencias, por lo que debe documentarse como análisis del conjunto combinado o ampliarse para separar orígenes. SP-Q10 exporta un reporte HDFS, **todavía no llena las tablas finales de PostgreSQL**.
 
@@ -452,18 +452,18 @@ Se espera `_SUCCESS` y al menos un `part-*.snappy.parquet`.
 
 Estos totales corresponden a la ejecución probada en el equipo de la pareja B y **no sustituyen pruebas en cada instalación**:
 
-| Control | Resultado de referencia |
-|---|---:|
-| Documentos MongoDB `lectura` | 1.068.777 |
-| Filas Parquet del ETL | 4.389.705 |
-| Sensores con lecturas | 38 |
-| Eventos MongoDB | 1.420 |
-| Filas de la matriz correlacional | 210 |
-| Modelos MLlib entrenados | 7 |
-| Filas del espacial por sensores PM2.5 | 20 |
-| Detecciones del análisis B4.2 de anomalías (dos métodos) | 49.255 |
-| Estado de los análisis | Ocho programas ejecutados; movilidad es un proxy |
-| Consultas Spark SQL ejecutadas | 10 de 10 |
+| Control | Resultado de referencia | Ejecución 2026-11-27 |
+|---|---:|---:|
+| Documentos MongoDB `lectura` | 1.068.777 | 1.068.584 |
+| Filas Parquet del ETL | 4.389.705 | 4.380.538 |
+| Sensores con lecturas | 38 | 38 |
+| Eventos MongoDB | 1.420 | 1.428 |
+| Filas de la matriz correlacional | 210 | 210 |
+| Modelos MLlib entrenados | 7 | 7 |
+| Filas del espacial por sensores PM2.5 | 20 | 20 |
+| Detecciones del análisis B4.2 de anomalías | 49.255 (dos métodos) | 134.063 (tres métodos, con IQR) |
+| Estado de los análisis | Ocho programas ejecutados; movilidad es un proxy | 8/8 |
+| Consultas Spark SQL ejecutadas | 10 de 10 | 10 de 10 |
 
 Ver las interpretaciones y cifras específicas en `docs/resultados/hallazgos_spark.md`.
 
@@ -518,7 +518,7 @@ python scripts/subir_crudos_hdfs.py --fuentes trafico energia
 .\scripts\spark_submit.ps1 etl_trafico_energia
 ```
 
-Salida: `/smartcity/sandbox/etl_trafico_energia` (Parquet `anio/mes`, formato largo del contrato). Modelo de los generadores: `docs/datos/GENERACION_SINTETICA.md` §6.
+Salida: `/smartcity/curated/trafico_energia` (Parquet `anio/mes`, formato largo del contrato). Modelo de los generadores: `docs/datos/GENERACION_SINTETICA.md` §6.
 
 ### 12.3 Export de Mongo a HDFS con validación de conteos (B2.6)
 
